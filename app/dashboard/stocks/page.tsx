@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 
 export default function Stocks() {
@@ -7,8 +7,10 @@ export default function Stocks() {
     const [data, setData] = useState<any>(null)
     const [chartData, setChartData] = useState<any>(null)
     const [period, setPeriod] = useState<any>('1y')
+    const [load, setLoad] = useState<any>(false)
 
     async function Analyze() {
+        setLoad(true)
         const res = await fetch(`http://localhost:8000/stock/${ticker}`)
         const json = await res.json()
         setData(json)
@@ -16,11 +18,29 @@ export default function Stocks() {
         const histRes = await fetch(`http://localhost:8000/stock/${ticker}/history`)
         const histJson = await histRes.json()
         setChartData(histJson)
+        setLoad(false)
     }
+
+    useEffect(() => {
+        if (ticker && data){
+            async function chart() {
+                const histRes = await fetch(`http://localhost:8000/stock/${ticker}/history?period=${period}`)
+            const histJson = await histRes.json()
+            setChartData(histJson)
+            }
+            chart()
+        }
+    }, [period]
+)
+
 
     return (
         <div>
             <h1 className="text-3xl font-bold">📈 Stock Analysis</h1>
+            {load && <div className="mt-6 flex items-center gap-2 text-gray-400">
+        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+        <p>Crunching Numbers...</p>
+    </div>}
             <input
                 className="mt-4 p-2 bg-gray-800 rounded text-white"
                 placeholder="Enter ticker e.g. AAPL"
@@ -66,7 +86,7 @@ export default function Stocks() {
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">Dividend Yield</p>
-                        <p className="text-2xl font-bold">{data.dividend_yield}</p>
+                        <p className="text-2xl font-bold">{data.dividend_yield}%</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">Debt to Equity</p>
