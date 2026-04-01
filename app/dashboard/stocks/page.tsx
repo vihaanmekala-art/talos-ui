@@ -8,17 +8,22 @@ export default function Stocks() {
     const [chartData, setChartData] = useState<any>(null)
     const [period, setPeriod] = useState<any>('1y')
     const [load, setLoad] = useState<any>(false)
-
+    const [analysis, setAnalysis] = useState<any>(null)
+    
     async function Analyze() {
         setLoad(true)
-        const res = await fetch(`http://localhost:8000/stock/${ticker}`)
-        const json = await res.json()
-        setData(json)
-
-        const histRes = await fetch(`http://localhost:8000/stock/${ticker}/history`)
-        const histJson = await histRes.json()
-        setChartData(histJson)
-        setLoad(false)
+        const [stockRes, analysisRes, histRes] = await Promise.all([
+        fetch(`http://localhost:8000/stock/${ticker}`),
+        fetch(`http://localhost:8000/analyze/${ticker}`),
+        fetch(`http://localhost:8000/stock/${ticker}/history?period=${period}`)
+    ])
+    const stockJson = await stockRes.json()
+    const analysisJson = await analysisRes.json()
+    const histJson = await histRes.json()
+    setData(stockJson)
+    setAnalysis(analysisJson)
+    setChartData(histJson)
+    setLoad(false)
     }
 
     useEffect(() => {
@@ -78,11 +83,11 @@ export default function Stocks() {
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">P/E Ratio</p>
-                        <p className="text-2xl font-bold">{data.pe_ratio}</p>
+                        <p className="text-2xl font-bold">{data.pe_ratio.toFixed(2)}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">Forward P/E</p>
-                        <p className="text-2xl font-bold">{data.forward_pe}</p>
+                        <p className="text-2xl font-bold">{data.forward_pe.toFixed(2)}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">Dividend Yield</p>
@@ -90,7 +95,7 @@ export default function Stocks() {
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">Debt to Equity</p>
-                        <p className="text-2xl font-bold">{data.debt_to_equity}</p>
+                        <p className="text-2xl font-bold">{(data.debt_to_equity/100).toFixed(2)}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">52 Week High</p>
@@ -100,6 +105,46 @@ export default function Stocks() {
                         <p className="text-gray-400 text-sm">52 Week Low</p>
                         <p className="text-2xl font-bold">${data.fifty_two_week_low}</p>
                     </div>
+                    <div className="bg-gray-900 p-4 rounded-lg">
+                        <p className="text-gray-400 text-sm">RSI</p>
+                        <p className="text-2xl font-bold">{analysis.rsi}</p>
+                    </div>
+                    <div className="bg-gray-900 p-4 rounded-lg">
+                        <p className="text-gray-400 text-sm">Mean Average Convergence/Divergence (MACD) </p>
+                        <p className="text-2xl font-bold">{analysis.macd}</p>
+                    </div>
+                    
+                    <div className="bg-gray-900 p-4 rounded-lg">
+                        <p className="text-gray-400 text-sm">50 Day Simple Moving Average </p>
+                        <p className="text-2xl font-bold">${analysis.sma50.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-gray-900 p-4 rounded-lg">
+                        <p className="text-gray-400 text-sm">100 Day Simple Moving Average </p>
+                        <p className="text-2xl font-bold">${analysis.sma100.toFixed(2)}</p>
+                    </div>
+                    
+                    <div className="bg-gray-900 p-4 rounded-lg">
+                        <p className="text-gray-400 text-sm">Standard Deviation (Volatility) </p>
+                        <p className="text-2xl font-bold">{analysis.vola.toFixed(2)}%</p>
+                    </div>
+                    <div className="bg-gray-900 p-4 rounded-lg">
+                        <p className="text-gray-400 text-sm">Standard Deviation (Volatility) </p>
+                        <p className="text-2xl font-bold">{analysis.vola.toFixed(2)}%</p>
+                    </div>
+                    
+                    <div className="bg-gray-900 p-4 rounded-lg">
+                        <p className="text-gray-400 text-sm">Stock CAGR </p>
+                        <p className="text-2xl font-bold">{analysis.stock_cagr.toFixed(2)}%</p>
+                    </div>
+                    <div className="bg-gray-900 p-4 rounded-lg">
+                        <p className="text-gray-400 text-sm">S&P 500 CAGR </p>
+                        <p className="text-2xl font-bold">{analysis.spy_cagr.toFixed(2)}%</p>
+                    </div>
+                    <div className="bg-gray-900 p-4 rounded-lg">
+                        <p className="text-gray-400 text-sm">Sharpe Ratio </p>
+                        <p className="text-2xl font-bold">{analysis.sharpe.toFixed(2)}</p>
+                    </div>
+                    
                 </div>
             )}
             {chartData && (
