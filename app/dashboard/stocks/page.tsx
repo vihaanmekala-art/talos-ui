@@ -38,7 +38,7 @@ export default function Stocks() {
     useEffect(() => {
         if (ticker && data){
             async function chart() {
-                const histRes = await fetch(`http://localhost:8000/stock/${ticker}/history?period=${period}`)
+                const histRes = await fetch(`${API_BASE}/stock/${ticker}/history?period_days=${periodMap[period]}`)
             const histJson = await histRes.json()
             setChartData(histJson)
             }
@@ -148,42 +148,46 @@ export default function Stocks() {
   </div>)}
   {sim && (
   <div className="mt-8 bg-gray-900 p-6 rounded-lg border border-gray-800">
-    <h2 className="text-xl font-bold">30-Day Price Projection for {data.ticker}</h2>
+    <div className="flex justify-between items-center mb-4">
+      <h2 className="text-xl font-bold text-white">🔮 30-Day Price Projection for {data.ticker}</h2>
+      <span className="text-xs font-mono text-blue-400 bg-blue-900/20 px-2 py-1 rounded border border-blue-800/50">
+        Stochastic Volatility Model
+      </span>
+    </div>
     
     <ResponsiveContainer width="100%" height={300}>
       <AreaChart data={sim}>
         <XAxis dataKey="day" hide />
-        <YAxis domain={["auto", "auto"]} orientation="right" />
-        <Tooltip contentStyle={{ backgroundColor: "#111827", borderRadius: "8px" }} />
+        <YAxis 
+          domain={["auto", "auto"]} 
+          orientation="right" 
+          tick={{fill: '#9ca3af', fontSize: 12}} 
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip 
+          formatter={(val: any) => [`$${Number(val).toFixed(2)}`, "Predicted Price"]}
+          contentStyle={{ backgroundColor: "#111827", borderRadius: "8px", border: "1px solid #374151", color: "#fff" }} 
+          itemStyle={{ color: "#3b82f6" }}
+        />
         
-        {/* Layer 1: The "Probability Cloud" (5th to 95th percentile) */}
-        {/* Pro Tip: Use the same dataKey for both but different stroke/fill to create the 'fan' */}
+        {/* Layer 1: The outer "Probability Cloud" (5th & 95th Percentiles) */}
         <Area 
           type="monotone" 
           dataKey="upper" 
-          stroke="#3b82f6" 
+          stroke="none" 
           fill="#3b82f6" 
           fillOpacity={0.1} 
-          strokeWidth={0} 
         />
         <Area 
           type="monotone" 
           dataKey="lower" 
-          stroke="#3b82f6" 
+          stroke="none" 
           fill="#3b82f6" 
           fillOpacity={0.1} 
-          strokeWidth={0} 
         />
 
-        {<ResponsiveContainer width="100%" height={300}>
-      <LineChart data={sim.p50}>
-        <XAxis dataKey="Date" hide />
-        <YAxis domain={["auto", "auto"]} />
-        <Tooltip formatter={(value: any) => [`$${Number(value).toFixed(2)}`, "Price"]}
-  contentStyle={{ backgroundColor: "#1f2937", border: "none", color: "#ffffff" }} />
-        <Line type="monotone" dataKey="Close" stroke="#6a4242" dot={false} />
-      </LineChart>
-    </ResponsiveContainer>}
+        {/* Layer 2: The "Expected Path" (50th Percentile) */}
         <Area 
           type="monotone" 
           dataKey="middle" 
@@ -194,6 +198,9 @@ export default function Stocks() {
         />
       </AreaChart>
     </ResponsiveContainer>
+    <p className="mt-4 text-xs text-gray-500 italic">
+      *This simulation uses 1,000 Monte Carlo iterations. It is a mathematical projection, not financial advice.
+    </p>
   </div>
 )}
 
