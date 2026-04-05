@@ -81,11 +81,11 @@ export default function Portfolio() {
             <ResponsiveContainer width="100%" height={200}>
         <PieChart>
     <Pie
-      data={Object.entries(data.max_sharpe.weights).map(([name, value]) => ({ name, value }))}
+      data={Object.entries(data.min_vol.weights).map(([name, value]) => ({ name, value }))}
       dataKey="value"
       cx="50%" cy="50%" outerRadius={60}
     >
-      {Object.entries(data.max_sharpe.weights).map((entry, index) => (
+      {Object.entries(data.min_vol.weights).map((entry, index) => (
         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
       ))}
     </Pie>
