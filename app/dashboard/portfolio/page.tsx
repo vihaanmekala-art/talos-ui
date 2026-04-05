@@ -78,6 +78,20 @@ export default function Portfolio() {
             {Object.entries(data.min_vol.weights).map(([ticker, weight]: any) => (
                 <p key={ticker}>{ticker}: {(weight * 100).toFixed(1)}%</p>
             ))}
+            <ResponsiveContainer width="100%" height={200}>
+        <PieChart>
+    <Pie
+      data={Object.entries(data.max_sharpe.weights).map(([name, value]) => ({ name, value }))}
+      dataKey="value"
+      cx="50%" cy="50%" outerRadius={60}
+    >
+      {Object.entries(data.max_sharpe.weights).map((entry, index) => (
+        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+      ))}
+    </Pie>
+  </PieChart>
+</ResponsiveContainer>
+  
         </div>
 
     </div>)}
