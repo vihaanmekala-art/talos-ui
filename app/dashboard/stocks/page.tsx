@@ -25,6 +25,7 @@ export default function Stocks() {
     setChartData(histJson)
     setLoad(false)
     }
+    
 
     useEffect(() => {
         if (ticker && data){
@@ -41,6 +42,7 @@ export default function Stocks() {
 
     return (
         <div>
+    
             <h1 className="text-3xl font-bold">📈 Stock Analysis</h1>
             {load && <div className="mt-6 flex items-center gap-2 text-gray-400">
         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
@@ -71,39 +73,19 @@ export default function Stocks() {
     </button>
   ))}
 </div>
-            {data && (
+            {data && analysis && !analysis.error && (
                 <div className="mt-6 grid grid-cols-3 gap-4">
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">Price</p>
                         <p className="text-2xl font-bold">${data.price}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
-                        <p className="text-gray-400 text-sm">Market Cap</p>
-                        <p className="text-2xl font-bold">${(data.market_cap / 1e9).toFixed(2)}B</p>
-                    </div>
-                    <div className="bg-gray-900 p-4 rounded-lg">
-                        <p className="text-gray-400 text-sm">P/E Ratio</p>
-                        <p className="text-2xl font-bold">{data.pe_ratio.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-gray-900 p-4 rounded-lg">
-                        <p className="text-gray-400 text-sm">Forward P/E</p>
-                        <p className="text-2xl font-bold">{data.forward_pe.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-gray-900 p-4 rounded-lg">
-                        <p className="text-gray-400 text-sm">Dividend Yield</p>
-                        <p className="text-2xl font-bold">{data.dividend_yield}%</p>
-                    </div>
-                    <div className="bg-gray-900 p-4 rounded-lg">
-                        <p className="text-gray-400 text-sm">Debt to Equity</p>
-                        <p className="text-2xl font-bold">{(data.debt_to_equity/100).toFixed(2)}</p>
-                    </div>
-                    <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">52 Week High</p>
-                        <p className="text-2xl font-bold">${data.fifty_two_week_high}</p>
+                        <p className="text-2xl font-bold">${data.max_high}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">52 Week Low</p>
-                        <p className="text-2xl font-bold">${data.fifty_two_week_low}</p>
+                        <p className="text-2xl font-bold">${data.max_low}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">RSI</p>
@@ -127,10 +109,6 @@ export default function Stocks() {
                         <p className="text-gray-400 text-sm">Standard Deviation (Volatility) </p>
                         <p className="text-2xl font-bold">{analysis.vola.toFixed(2)}%</p>
                     </div>
-                    <div className="bg-gray-900 p-4 rounded-lg">
-                        <p className="text-gray-400 text-sm">Standard Deviation (Volatility) </p>
-                        <p className="text-2xl font-bold">{analysis.vola.toFixed(2)}%</p>
-                    </div>
                     
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">Stock CAGR </p>
@@ -149,7 +127,7 @@ export default function Stocks() {
             )}
             {chartData && (
   <div className="mt-8 bg-gray-900 p-4 rounded-lg">
-    <h2 className="text-xl font-bold mb-4">Price History</h2>
+    <h2 className="text-xl font-bold mb-4">Price History for {data.ticker}</h2>
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={chartData}>
         <XAxis dataKey="Date" hide />
@@ -160,6 +138,7 @@ export default function Stocks() {
       </LineChart>
     </ResponsiveContainer>
   </div>
+  
 )}
         </div>
     )
