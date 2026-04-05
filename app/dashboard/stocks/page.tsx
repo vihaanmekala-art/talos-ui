@@ -9,13 +9,17 @@ export default function Stocks() {
     const [period, setPeriod] = useState<any>('1y')
     const [load, setLoad] = useState<any>(false)
     const [analysis, setAnalysis] = useState<any>(null)
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const periodMap: Record<string, number> = {
+    "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
+};
     
     async function Analyze() {
         setLoad(true)
         const [stockRes, analysisRes, histRes] = await Promise.all([
-        fetch(`http://localhost:8000/stock/${ticker}`),
-        fetch(`http://localhost:8000/analyze/${ticker}`),
-        fetch(`http://localhost:8000/stock/${ticker}/history?period=${period}`)
+        fetch(`${API_BASE}/stock/${ticker}`),
+        fetch(`${API_BASE}/analyze/${ticker}`),
+        fetch(`${API_BASE}/stock/${ticker}/history?period_days=${periodMap[period]}`)
     ])
     const stockJson = await stockRes.json()
     const analysisJson = await analysisRes.json()

@@ -1,15 +1,22 @@
 "use client"
 import { useState } from "react"
+import { PieChart, ResponsiveContainer, Cell, Pie } from "recharts"
 
 export default function Portfolio() {
     const [tickers, setTickers] = useState("")
     const [data, setData] = useState<any>(null)
     const [spin, setSpin] = useState<any>(false)
     const [error, setError] = useState<string | null>(null)
+    const COLORS = ["#ffffff", "#9ca3af", "#4b5563", "#1f2937"];
 
     async function Optimize() {
+        if (!tickers.includes(',')) {
+        setError("Please enter at least two tickers separated by a comma.");
+        return;
+    }
         setSpin(true)
-        const res = await fetch(`http://localhost:8000/portfolio?tickers=${tickers}`)
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const res = await fetch(`${API_BASE}/portfolio?tickers=${tickers}`)
         const json = await res.json()
         if (json.error) {
             setError(json.error)
@@ -48,6 +55,19 @@ export default function Portfolio() {
             {Object.entries(data.max_sharpe.weights).map(([ticker, weight]: any) => (
                 <p key={ticker}>{ticker}: {(weight * 100).toFixed(1)}%</p>
             ))}
+            <ResponsiveContainer width="100%" height={200}>
+  <PieChart>
+    <Pie
+      data={Object.entries(data.max_sharpe.weights).map(([name, value]) => ({ name, value }))}
+      dataKey="value"
+      cx="50%" cy="50%" outerRadius={60}
+    >
+      {Object.entries(data.max_sharpe.weights).map((entry, index) => (
+        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+      ))}
+    </Pie>
+  </PieChart>
+</ResponsiveContainer>
         </div>
         <div className="bg-gray-900 p-4 rounded-lg">
             <h2 className="text-xl font-bold mb-4">🛡️ Min Volatility</h2>
@@ -59,6 +79,7 @@ export default function Portfolio() {
                 <p key={ticker}>{ticker}: {(weight * 100).toFixed(1)}%</p>
             ))}
         </div>
+
     </div>)}
     {error && <p className="mt-4 text-red-400">{error}</p>}
         
