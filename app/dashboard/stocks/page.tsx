@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
 
 export default function Stocks() {
     const [ticker, setTicker] = useState('')
@@ -9,6 +9,7 @@ export default function Stocks() {
     const [period, setPeriod] = useState<any>('1y')
     const [load, setLoad] = useState<any>(false)
     const [analysis, setAnalysis] = useState<any>(null)
+    const [sim, setSim] = useState<any>(null)
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
@@ -16,17 +17,20 @@ export default function Stocks() {
     
     async function Analyze() {
         setLoad(true)
-        const [stockRes, analysisRes, histRes] = await Promise.all([
+        const [stockRes, analysisRes, histRes, simRes] = await Promise.all([
         fetch(`${API_BASE}/stock/${ticker}`),
         fetch(`${API_BASE}/analyze/${ticker}`),
-        fetch(`${API_BASE}/stock/${ticker}/history?period_days=${periodMap[period]}`)
+        fetch(`${API_BASE}/stock/${ticker}/history?period_days=${periodMap[period]}`),
+        fetch(`${API_BASE}/stock/${ticker}/simulation`)
     ])
     const stockJson = await stockRes.json()
     const analysisJson = await analysisRes.json()
     const histJson = await histRes.json()
+    const simJson = await simRes.json()
     setData(stockJson)
     setAnalysis(analysisJson)
     setChartData(histJson)
+    setSim(simJson)
     setLoad(false)
     }
     
@@ -138,12 +142,61 @@ export default function Stocks() {
         <YAxis domain={["auto", "auto"]} />
         <Tooltip formatter={(value: any) => [`$${Number(value).toFixed(2)}`, "Price"]}
   contentStyle={{ backgroundColor: "#1f2937", border: "none", color: "#ffffff" }} />
-        <Line type="monotone" dataKey="Close" stroke="#ffffff" dot={false} />
+        <Line type="monotone" dataKey="Close" stroke="#6a4242" dot={false} />
       </LineChart>
     </ResponsiveContainer>
+  </div>)}
+  {sim && (
+  <div className="mt-8 bg-gray-900 p-6 rounded-lg border border-gray-800">
+    <h2 className="text-xl font-bold">30-Day Price Projection for {data.ticker}</h2>
+    
+    <ResponsiveContainer width="100%" height={300}>
+      <AreaChart data={sim}>
+        <XAxis dataKey="day" hide />
+        <YAxis domain={["auto", "auto"]} orientation="right" />
+        <Tooltip contentStyle={{ backgroundColor: "#111827", borderRadius: "8px" }} />
+        
+        {/* Layer 1: The "Probability Cloud" (5th to 95th percentile) */}
+        {/* Pro Tip: Use the same dataKey for both but different stroke/fill to create the 'fan' */}
+        <Area 
+          type="monotone" 
+          dataKey="upper" 
+          stroke="#3b82f6" 
+          fill="#3b82f6" 
+          fillOpacity={0.1} 
+          strokeWidth={0} 
+        />
+        <Area 
+          type="monotone" 
+          dataKey="lower" 
+          stroke="#3b82f6" 
+          fill="#3b82f6" 
+          fillOpacity={0.1} 
+          strokeWidth={0} 
+        />
+
+        {<ResponsiveContainer width="100%" height={300}>
+      <LineChart data={sim.p50}>
+        <XAxis dataKey="Date" hide />
+        <YAxis domain={["auto", "auto"]} />
+        <Tooltip formatter={(value: any) => [`$${Number(value).toFixed(2)}`, "Price"]}
+  contentStyle={{ backgroundColor: "#1f2937", border: "none", color: "#ffffff" }} />
+        <Line type="monotone" dataKey="Close" stroke="#6a4242" dot={false} />
+      </LineChart>
+    </ResponsiveContainer>}
+        <Area 
+          type="monotone" 
+          dataKey="middle" 
+          stroke="#3b82f6" 
+          fill="#3b82f6" 
+          fillOpacity={0.3} 
+          strokeWidth={3} 
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   </div>
-  
 )}
+
         </div>
     )
 }
