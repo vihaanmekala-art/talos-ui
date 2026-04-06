@@ -157,7 +157,7 @@ export default function Stocks() {
     
     <ResponsiveContainer width="100%" height={300}>
       <AreaChart data={sim}>
-        <XAxis dataKey="day" hide />
+        <XAxis dataKey="Date" hide />
         <YAxis 
           domain={["auto", "auto"]} 
           orientation="right" 
