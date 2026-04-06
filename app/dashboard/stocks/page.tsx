@@ -21,7 +21,7 @@ export default function Stocks() {
         fetch(`${API_BASE}/stock/${ticker}`),
         fetch(`${API_BASE}/analyze/${ticker}`),
         fetch(`${API_BASE}/stock/${ticker}/history?period_days=${periodMap[period]}`),
-        fetch(`${API_BASE}/stock/{ticker}/simulate`)
+        fetch(`${API_BASE}/stock/${ticker}/simulate`)
     ])
     const stockJson = await stockRes.json()
     const analysisJson = await analysisRes.json()
