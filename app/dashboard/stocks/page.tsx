@@ -171,26 +171,25 @@ export default function Stocks() {
           itemStyle={{ color: "#3b82f6" }}
         />
         
-        {/* Layer 1: The outer "Probability Cloud" (5th & 95th Percentiles) */}
+        
         <Area 
           type="monotone" 
-          dataKey="upper" 
+          dataKey="p95" 
           stroke="none" 
           fill="#3b82f6" 
           fillOpacity={0.1} 
         />
         <Area 
           type="monotone" 
-          dataKey="lower" 
+          dataKey="p5" 
           stroke="none" 
           fill="#3b82f6" 
           fillOpacity={0.1} 
         />
 
-        {/* Layer 2: The "Expected Path" (50th Percentile) */}
         <Area 
           type="monotone" 
-          dataKey="middle" 
+          dataKey="p50" 
           stroke="#3b82f6" 
           fill="#3b82f6" 
           fillOpacity={0.3} 
