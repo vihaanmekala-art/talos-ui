@@ -20,7 +20,7 @@ export default function Stocks() {
 async function Analyze() {
     setLoad(true);
     
-    const simUrl = `${API_BASE}/stock/${ticker}/simulate${targetPrice ? `?target_price=${targetPrice}` : ''}`;
+    const simUrl = `${API_BASE}/stock/${ticker}/simulate?target_price=${targetPrice || ''}`;
     
     try {
         const [resStock, resAnalysis, resHist, resSim] = await Promise.all([
