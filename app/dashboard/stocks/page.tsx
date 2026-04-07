@@ -243,7 +243,7 @@ useEffect(() => {
         
       <div className="mt-4 p-4 bg-gray-800 rounded">
         <p className="text-sm text-gray-400">Probability of Price Increase in 30 Days According To Monte Carlo:</p>
-        <p className="text-2xl font-bold text-green-400">{(prob * 100).toFixed(2)}%</p>
+        <p className="text-2xl font-bold text-green-400">{(prob).toFixed(2)}%</p>
       </div>
     )}
   </div>
