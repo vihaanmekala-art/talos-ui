@@ -10,6 +10,8 @@ export default function Stocks() {
     const [load, setLoad] = useState<any>(false)
     const [analysis, setAnalysis] = useState<any>(null)
     const [sim, setSim] = useState<any>(null)
+    const [prob, setProb] = useState<any>(null)
+    const [targetPrice, setTargetPrice] = useState<any>(null)
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
@@ -17,20 +19,27 @@ export default function Stocks() {
     
     async function Analyze() {
         setLoad(true)
+        const simUrl = `${API_BASE}/stock/${ticker}/simulate${targetPrice ? `?target_price=${targetPrice}` : ''}`;
         const [stockRes, analysisRes, histRes, simRes] = await Promise.all([
         fetch(`${API_BASE}/stock/${ticker}`),
         fetch(`${API_BASE}/analyze/${ticker}`),
         fetch(`${API_BASE}/stock/${ticker}/history?period_days=${periodMap[period]}`),
-        fetch(`${API_BASE}/stock/${ticker}/simulate`)
+        fetch(`${simUrl}`)
     ])
     const stockJson = await stockRes.json()
     const analysisJson = await analysisRes.json()
     const histJson = await histRes.json()
     const simJson = await simRes.json()
+    if (simJson && simJson.data) {
+        setSim(simJson.data)         
+        setProb(simJson.probability)
+    } else {
+        setSim(null)
+        setProb(null)
+    }
     setData(stockJson)
     setAnalysis(analysisJson)
     setChartData(histJson)
-    setSim(simJson)
     setLoad(false)
     }
     
@@ -200,6 +209,19 @@ export default function Stocks() {
     <p className="mt-4 text-xs text-gray-500 italic">
       *This simulation uses 1,000 Monte Carlo iterations. It is a mathematical projection, not financial advice.
     </p>
+    <input
+    className="mt-4 ml-2 p-2 bg-gray-800 rounded text-white w-32"
+    placeholder="Target Amount"
+    type="number"
+    value={targetPrice}
+    onChange={(e) => setTargetPrice(e.target.value)}/>
+    {prob !== null && (
+        
+      <div className="mt-4 p-4 bg-gray-800 rounded">
+        <p className="text-sm text-gray-400">Probability of Price Increase in 30 Days:</p>
+        <p className="text-2xl font-bold text-green-400">{(prob * 100).toFixed(2)}%</p>
+      </div>
+    )}
   </div>
 )}
 
