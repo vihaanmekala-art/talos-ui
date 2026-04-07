@@ -11,6 +11,7 @@ export default function Stocks() {
     const [analysis, setAnalysis] = useState<any>(null)
     const [sim, setSim] = useState<any>(null)
     const [prob, setProb] = useState<any>(null)
+    const [mlPred, setMlPred] = useState<number | null>(null);
     const [targetPrice, setTargetPrice] = useState<any>(null)
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const periodMap: Record<string, number> = {
@@ -38,6 +39,7 @@ async function Analyze() {
         if (simData && simData.data) {
             setSim(simData.data);         
             setProb(simData.probability);
+            setMlPred(simData.ml_expected_price);
         } else {
             setSim(null);
             setProb(null);
@@ -180,6 +182,7 @@ useEffect(() => {
     </ResponsiveContainer>
   </div>)}
   {sim && (
+    
   <div className="mt-8 bg-gray-900 p-6 rounded-lg border border-gray-800">
     <div className="flex justify-between items-center mb-4">
       <h2 className="text-xl font-bold text-white">30-Day Price Projection for {data.ticker}</h2>
