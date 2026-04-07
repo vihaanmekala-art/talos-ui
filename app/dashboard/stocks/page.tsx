@@ -17,32 +17,44 @@ export default function Stocks() {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
 };
     
-    async function Analyze() {
-        setLoad(true)
-        const simUrl = `${API_BASE}/stock/${ticker}/simulate${targetPrice ? `?target_price=${targetPrice}` : ''}`;
-        const [stockRes, analysisRes, histRes, simRes] = await Promise.all([
-        fetch(`${API_BASE}/stock/${ticker}`),
-        fetch(`${API_BASE}/analyze/${ticker}`),
-        fetch(`${API_BASE}/stock/${ticker}/history?period_days=${periodMap[period]}`),
-        fetch(`${simUrl}`)
-    ])
-    const stockJson = await stockRes.json()
-    const analysisJson = await analysisRes.json()
-    const histJson = await histRes.json()
-    const simJson = await simRes.json()
-    if (simJson && simJson.data) {
-        setSim(simJson.data)         
-        setProb(simJson.probability)
-    } else {
-        setSim(null)
-        setProb(null)
-    }
-    setData(stockJson)
-    setAnalysis(analysisJson)
-    setChartData(histJson)
-    setLoad(false)
+async function Analyze() {
+    setLoad(true);
+    
+    const simUrl = `${API_BASE}/stock/${ticker}/simulate${targetPrice ? `?target_price=${targetPrice}` : ''}`;
+    
+    try {
+        const [resStock, resAnalysis, resHist, resSim] = await Promise.all([
+            fetch(`${API_BASE}/stock/${ticker}`),
+            fetch(`${API_BASE}/analyze/${ticker}`),
+            fetch(`${API_BASE}/stock/${ticker}/history?period_days=${periodMap[period]}`),
+            fetch(simUrl) 
+        ]);
+
+  
+        const sData = await resStock.json();
+        const aData = await resAnalysis.json();
+        const hData = await resHist.json();
+        const simData = await resSim.json();
+
+       
+        if (simData && simData.data) {
+            setSim(simData.data);         
+            setProb(simData.probability);
+        } else {
+            setSim(null);
+            setProb(null);
+        }
+
+        setData(sData);
+        setAnalysis(aData);
+        setChartData(hData);
+        
+    } catch (error) {
+        console.error("Talos Engine Error:", error);
     }
     
+    setLoad(false);
+}
 
     useEffect(() => {
         if (ticker && data){
