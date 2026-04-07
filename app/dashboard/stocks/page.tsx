@@ -84,7 +84,7 @@ export default function Stocks() {
             {data && analysis && !analysis.error && (
                 <div className="mt-6 grid grid-cols-3 gap-4">
                     <div className="bg-gray-900 p-4 rounded-lg">
-                        <p className="text-gray-400 text-sm">Price</p>
+                        <p className="text-gray-400 text-sm">Price (IEX Exchange. May be off by a 1-2 dollars.)</p>
                         <p className="text-2xl font-bold">${data?.price?.toFixed(2) ?? 'N/A'}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
