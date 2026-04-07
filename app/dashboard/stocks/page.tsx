@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
 
 export default function Stocks() {
@@ -65,7 +65,21 @@ async function Analyze() {
         }
     }, [period]
 )
-
+useEffect(() => {
+        if (ticker && sim && targetPrice) {
+            const updateSim = async () => {
+                const simUrl = `${API_BASE}/stock/${ticker}/simulate?target_price=${targetPrice}`;
+                const res = await fetch(simUrl);
+                const json = await res.json();
+                if (json && json.probability !== undefined) {
+                    setProb(json.probability);
+                }
+            };
+            
+            const timeoutId = setTimeout(updateSim, 500); 
+            return () => clearTimeout(timeoutId);
+        }
+    }, [targetPrice]);
 
     return (
         <div>
