@@ -85,15 +85,15 @@ export default function Stocks() {
                 <div className="mt-6 grid grid-cols-3 gap-4">
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">Price</p>
-                        <p className="text-2xl font-bold">${data.price}</p>
+                        <p className="text-2xl font-bold">${data?.price?.toFixed(2) ?? 'N/A'}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">52 Week High</p>
-                        <p className="text-2xl font-bold">${data.max_high}</p>
+                        <p className="text-2xl font-bold">${data?.max_high?.toFixed(2) ?? 'N/A'}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">52 Week Low</p>
-                        <p className="text-2xl font-bold">${data.max_low}</p>
+                        <p className="text-2xl font-bold">${data?.max_low?.toFixed(2) ?? 'N/A'}</p>
                     </div>
                     <div className="bg-gray-900 p-4 rounded-lg">
                         <p className="text-gray-400 text-sm">RSI</p>
@@ -149,7 +149,7 @@ export default function Stocks() {
   {sim && (
   <div className="mt-8 bg-gray-900 p-6 rounded-lg border border-gray-800">
     <div className="flex justify-between items-center mb-4">
-      <h2 className="text-xl font-bold text-white">🔮 30-Day Price Projection for {data.ticker}</h2>
+      <h2 className="text-xl font-bold text-white">30-Day Price Projection for {data.ticker}</h2>
       <span className="text-xs font-mono text-blue-400 bg-blue-900/20 px-2 py-1 rounded border border-blue-800/50">
         Stochastic Volatility Model
       </span>
