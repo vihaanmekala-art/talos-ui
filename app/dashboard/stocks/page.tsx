@@ -11,7 +11,7 @@ export default function Stocks() {
     const [analysis, setAnalysis] = useState<any>(null)
     const [sim, setSim] = useState<any>(null)
     const [prob, setProb] = useState<any>(null)
-    const [mlPred, setMlPred] = useState<number | null>(null);
+    const [mlReturn, setMlReturn] = useState<number | null>(null);
     const [targetPrice, setTargetPrice] = useState<any>(null)
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const periodMap: Record<string, number> = {
@@ -39,7 +39,7 @@ async function Analyze() {
         if (simData && simData.data) {
             setSim(simData.data);         
             setProb(simData.probability);
-            setMlPred(simData.ml_expected_price);
+            setMlReturn(simData.ml_expected_price);
         } else {
             setSim(null);
             setProb(null);
@@ -84,11 +84,11 @@ useEffect(() => {
     }, [targetPrice]);
 
     return (
-    <div className="p-4 max-w-7xl mx-auto space-y-8"> {/* Container padding & spacing */}
+    <div className="p-4 max-w-7xl mx-auto space-y-8"> 
         <header>
             <h1 className="text-3xl font-bold text-white">📈 Stock Analysis</h1>
             
-            {/* Responsive Search Bar */}
+            
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
                 <input
                     className="p-3 bg-gray-800 rounded-lg text-white flex-grow border border-gray-700 outline-none focus:ring-2 focus:ring-blue-500"
@@ -104,7 +104,6 @@ useEffect(() => {
                 </button>
             </div>
 
-            {/* Scrollable Period Selector (Good for mobile thumbs) */}
             <div className="mt-4 flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                 {["1mo", "3mo", "6mo", "1y", "2y", "5y"].map((p) => (
                     <button
@@ -129,7 +128,6 @@ useEffect(() => {
 
         {data && analysis && !analysis.error && (
             <section>
-                {/* 2 columns on mobile, 3 on tablet, 4 on desktop */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     <StatCard label="Price (IEX)" value={`$${data?.price?.toFixed(2)}`} sub="Delayed" />
                     <StatCard label="52W High" value={`$${data?.max_high?.toFixed(2)}`} />
@@ -151,6 +149,31 @@ useEffect(() => {
                 <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
                     <h2 className="text-lg font-bold mb-4">Price History: {ticker}</h2>
                     <div className="h-[300px] w-full">
+                        {/* AI Insight Header */}
+{mlReturn !== null && (
+    <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex-1 bg-blue-900/20 border border-blue-500/30 p-4 rounded-xl shadow-lg">
+            <p className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1">
+                Talos AI Bias (30D)
+            </p>
+            <div className="flex items-baseline gap-2">
+                <p className={`text-3xl font-black ${mlReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {mlReturn >= 0 ? '↑' : '↓'} {(mlReturn * 100).toFixed(1)}%
+                </p>
+                <p className="text-gray-400 text-sm font-medium">Expected Return</p>
+            </div>
+        </div>
+
+        <div className="flex-1 bg-gray-800/40 border border-gray-700 p-4 rounded-xl shadow-lg">
+            <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">
+                Model Confidence
+            </p>
+            <p className="text-2xl font-bold text-white">
+                {mlReturn > 0.05 || mlReturn < -0.05 ? "High Conviction" : "Moderate Trend"}
+            </p>
+        </div>
+    </div>
+)}
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={chartData}>
                                 <XAxis dataKey="Date" hide />
