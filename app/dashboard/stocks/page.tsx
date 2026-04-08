@@ -143,14 +143,36 @@ useEffect(() => {
             </section>
         )}
 
-        {/* Charts: Full width on all devices */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {chartData && (
                 <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
                     <h2 className="text-lg font-bold mb-4">Price History: {ticker}</h2>
                     <div className="h-[300px] w-full">
-                        {/* AI Insight Header */}
-{mlReturn !== null && (
+                      
+                      <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartData}>
+                                <XAxis dataKey="Date" hide />
+                                <YAxis domain={["auto", "auto"]} tick={{fontSize: 12}} />
+                                <Tooltip 
+                                    formatter={(value: any) => [`$${Number(value).toFixed(2)}`, "Price"]}
+                                    contentStyle={{ backgroundColor: "#1f2937", borderRadius: '8px', border: "none" }} 
+                                />
+                                <Line type="monotone" dataKey="Close" stroke="#3b82f6" dot={false} strokeWidth={2} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
+
+            {sim && (
+                <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
+                    <div className="flex flex-col sm:flex-row justify-between mb-4 gap-2">
+                        <h2 className="text-lg font-bold">30-Day Projection</h2>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] uppercase font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded">Monte Carlo</span>
+                        </div>
+                    </div>
+                    {mlReturn !== null && (
     <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1 bg-blue-900/20 border border-blue-500/30 p-4 rounded-xl shadow-lg">
             <p className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1">
@@ -174,30 +196,6 @@ useEffect(() => {
         </div>
     </div>
 )}
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartData}>
-                                <XAxis dataKey="Date" hide />
-                                <YAxis domain={["auto", "auto"]} tick={{fontSize: 12}} />
-                                <Tooltip 
-                                    formatter={(value: any) => [`$${Number(value).toFixed(2)}`, "Price"]}
-                                    contentStyle={{ backgroundColor: "#1f2937", borderRadius: '8px', border: "none" }} 
-                                />
-                                <Line type="monotone" dataKey="Close" stroke="#3b82f6" dot={false} strokeWidth={2} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            )}
-
-            {sim && (
-                <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
-                    <div className="flex flex-col sm:flex-row justify-between mb-4 gap-2">
-                        <h2 className="text-lg font-bold">30-Day Projection</h2>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] uppercase font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded">Monte Carlo</span>
-                        </div>
-                    </div>
-                    
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={sim}>
