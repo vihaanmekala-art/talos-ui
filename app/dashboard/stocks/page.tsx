@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, use } from "react"
+import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
 
 export default function Stocks() {
@@ -84,163 +84,208 @@ useEffect(() => {
     }, [targetPrice]);
 
     return (
-    <div className="p-4 max-w-7xl mx-auto space-y-8"> 
-        <header>
-            <h1 className="text-3xl font-bold text-white">📈 Stock Analysis</h1>
-            
-            
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+    <div className="p-4 max-w-6xl mx-auto space-y-6 text-white">
+
+      {/* Header */}
+      <div>
+        <div className="flex items-baseline gap-3 mb-5">
+          <h1 className="text-2xl font-bold text-white">Stock analysis</h1>
+          <span className="text-sm text-gray-500">Talos Engine</span>
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            className="flex-1 px-4 py-2.5 bg-gray-900 border border-white/10 rounded-xl text-white text-sm placeholder-gray-600 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition"
+            placeholder="Ticker — e.g. AAPL"
+            value={ticker}
+            onChange={e => setTicker(e.target.value.toUpperCase())}
+            onKeyDown={e => e.key === "Enter" && Analyze()}
+          />
+          <button
+            onClick={Analyze}
+            disabled={load}
+            className="px-6 py-2.5 bg-white text-black text-sm font-semibold rounded-xl hover:bg-gray-100 active:scale-95 transition disabled:opacity-50"
+          >
+            {load ? "Analyzing…" : "Analyze"}
+          </button>
+        </div>
+
+        <div className="flex gap-1.5 mt-3 flex-wrap">
+          {Object.keys(periodMap).map(p => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition ${
+                period === p
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-800/80 text-gray-400 hover:bg-gray-700"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Loading */}
+      {load && (
+        <div className="flex items-center gap-3 text-blue-400">
+          <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium animate-pulse">Crunching market data…</span>
+        </div>
+      )}
+
+      {/* Signal bar */}
+      {data && analysis && !analysis.error && (
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-gray-900/60 border border-white/5 rounded-xl text-sm">
+          <span className="font-bold text-white text-base">{ticker}</span>
+          <span className="text-gray-300 font-medium">${data?.price?.toFixed(2)}</span>
+          <SignalPill signal={analysis.rsi_signal} />
+          <div className="mt-1 w-full sm:mt-0 sm:ml-auto sm:w-auto flex gap-4 text-xs text-gray-500">
+            <span>RSI <span className="text-gray-300 font-medium">{analysis.rsi}</span></span>
+            <span>MACD <span className="text-gray-300 font-medium">{analysis.macd}</span></span>
+            <span>Sharpe <span className="text-gray-300 font-medium">{analysis.sharpe?.toFixed(2)}</span></span>
+          </div>
+        </div>
+      )}
+
+      {/* Stat grid */}
+      {data && analysis && !analysis.error && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <StatCard label="52W High" value={`$${data?.max_high?.toFixed(2)}`} />
+          <StatCard label="52W Low" value={`$${data?.max_low?.toFixed(2)}`} />
+          <StatCard label="50D SMA" value={`$${analysis.sma50?.toFixed(2)}`} />
+          <StatCard label="Volatility" value={`${analysis.vola}%`} />
+          <StatCard
+            label="Stock CAGR"
+            value={`${analysis.stock_cagr?.toFixed(1)}%`}
+            color={analysis.stock_cagr > 0 ? "text-green-400" : "text-red-400"}
+          />
+          <StatCard label="S&P 500 CAGR" value={`${analysis.spy_cagr?.toFixed(1)}%`} />
+          <StatCard label="Sharpe ratio" value={analysis.sharpe?.toFixed(2)} />
+          <StatCard label="100D SMA" value={`$${analysis.sma100?.toFixed(2)}`} />
+        </div>
+      )}
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Price history */}
+        {chartData && (
+          <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-4">
+            <div className="mb-4">
+              <p className="font-semibold text-white text-sm">Price history</p>
+              <p className="text-xs text-gray-500">{ticker} · {period}</p>
+            </div>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <XAxis dataKey="Date" hide />
+                  <YAxis domain={["auto", "auto"]} tick={{ fontSize: 11, fill: "#6b7280" }} width={55} />
+                  <Tooltip
+                    formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Price"]}
+                    contentStyle={{ backgroundColor: "#111827", border: "1px solid #1f2937", borderRadius: "10px", fontSize: 12 }}
+                  />
+                  <Line type="monotone" dataKey="Close" stroke="#3b82f6" dot={false} strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Monte Carlo projection */}
+        {sim && (
+          <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-4">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="font-semibold text-white text-sm">30-day projection</p>
+                <p className="text-xs text-gray-500">Monte Carlo · 1,000 paths</p>
+              </div>
+              <span className="text-[10px] uppercase font-bold text-blue-400 bg-blue-900/30 border border-blue-900/50 px-2 py-1 rounded-md">
+                AI-powered
+              </span>
+            </div>
+
+            {mlReturn !== null && (
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="bg-gray-800/50 border border-white/5 rounded-xl p-3">
+                  <p className="text-[10px] uppercase font-semibold tracking-widest text-gray-500 mb-1">AI bias (30D)</p>
+                  <p className={`text-2xl font-bold ${mlReturn >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {mlReturn >= 0 ? "↑" : "↓"} {(mlReturn * 100).toFixed(1)}%
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 border border-white/5 rounded-xl p-3">
+                  <p className="text-[10px] uppercase font-semibold tracking-widest text-gray-500 mb-1">Conviction</p>
+                  <p className="text-base font-semibold text-white mt-1">
+                    {Math.abs(mlReturn) > 0.05 ? "High" : "Moderate"}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="h-[160px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={sim}>
+                  <XAxis dataKey="Date" hide />
+                  <YAxis domain={["auto", "auto"]} orientation="right" tick={{ fontSize: 11, fill: "#6b7280" }} width={55} />
+                  <Tooltip
+                    formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Price"]}
+                    contentStyle={{ backgroundColor: "#111827", border: "1px solid #1f2937", borderRadius: "10px", fontSize: 12 }}
+                  />
+                  <Area type="monotone" dataKey="p95" stroke="#1d4ed8" fill="#1d4ed8" fillOpacity={0.06} strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                  <Area type="monotone" dataKey="p50" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2.5} dot={false} />
+                  <Area type="monotone" dataKey="p5" stroke="#1d4ed8" fill="transparent" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Target probability */}
+            <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-4">
+              <div>
+                <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1.5 tracking-widest">Target price</p>
                 <input
-                    className="p-3 bg-gray-800 rounded-lg text-white flex-grow border border-gray-700 outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter ticker e.g. AAPL"
-                    value={ticker}
-                    onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                  className="w-24 px-3 py-1.5 bg-gray-800 border border-white/10 rounded-lg text-white text-sm outline-none focus:ring-2 focus:ring-blue-500/40"
+                  type="number"
+                  value={targetPrice}
+                  onChange={e => setTargetPrice(e.target.value)}
+                  placeholder="$ target"
                 />
-                <button
-                    onClick={Analyze}
-                    className="px-8 py-3 bg-white text-black rounded-lg font-bold hover:bg-gray-200 transition active:scale-95"
-                >
-                    {load ? "Analyzing..." : "Analyze"}
-                </button>
+              </div>
+              {prob !== null && targetPrice && (
+                <div>
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1 tracking-widest">Probability</p>
+                  <p className="text-2xl font-bold text-green-400">{Number(prob).toFixed(1)}%</p>
+                </div>
+              )}
             </div>
-
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                {["1mo", "3mo", "6mo", "1y", "2y", "5y"].map((p) => (
-                    <button
-                        key={p}
-                        onClick={() => setPeriod(p)}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${
-                            period === p ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                        }`}
-                    >
-                        {p}
-                    </button>
-                ))}
-            </div>
-        </header>
-
-        {load && (
-            <div className="flex items-center gap-3 text-blue-400 animate-pulse">
-                <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"/>
-                <p className="font-medium">Crunching market data...</p>
-            </div>
+          </div>
         )}
-
-        {data && analysis && !analysis.error && (
-            <section>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    <StatCard label="Price (IEX)" value={`$${data?.price?.toFixed(2)}`} sub="Delayed" />
-                    <StatCard label="52W High" value={`$${data?.max_high?.toFixed(2)}`} />
-                    <StatCard label="52W Low" value={`$${data?.max_low?.toFixed(2)}`} />
-                    <StatCard label="RSI" value={analysis.rsi} color={analysis.rsi > 70 ? 'text-red-400' : analysis.rsi < 30 ? 'text-green-400' : ''} />
-                    <StatCard label="MACD" value={analysis.macd} />
-                    <StatCard label="50 Day SMA" value={`$${analysis.sma50.toFixed(2)}`} />
-                    <StatCard label="Volatility" value={`${analysis.vola.toFixed(2)}%`} />
-                    <StatCard label="Sharpe Ratio" value={analysis.sharpe.toFixed(2)} />
-                    <StatCard label="Stock CAGR" value={`${analysis.stock_cagr.toFixed(2)}%`} />
-                    <StatCard label="S&P 500 CAGR" value={`${analysis.spy_cagr.toFixed(2)}%`} />
-                </div>
-            </section>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {chartData && (
-                <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
-                    <h2 className="text-lg font-bold mb-4">Price History: {ticker}</h2>
-                    <div className="h-[300px] w-full">
-                      
-                      <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartData}>
-                                <XAxis dataKey="Date" hide />
-                                <YAxis domain={["auto", "auto"]} tick={{fontSize: 12}} />
-                                <Tooltip 
-                                    formatter={(value: any) => [`$${Number(value).toFixed(2)}`, "Price"]}
-                                    contentStyle={{ backgroundColor: "#1f2937", borderRadius: '8px', border: "none" }} 
-                                />
-                                <Line type="monotone" dataKey="Close" stroke="#3b82f6" dot={false} strokeWidth={2} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            )}
-
-            {sim && (
-                <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
-                    <div className="flex flex-col sm:flex-row justify-between mb-4 gap-2">
-                        <h2 className="text-lg font-bold">30-Day Projection</h2>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] uppercase font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded">Monte Carlo</span>
-                        </div>
-                    </div>
-                    {mlReturn !== null && (
-    <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="flex-1 bg-blue-900/20 border border-blue-500/30 p-4 rounded-xl shadow-lg">
-            <p className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1">
-                Talos AI Bias (30D)
-            </p>
-            <div className="flex items-baseline gap-2">
-                <p className={`text-3xl font-black ${mlReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {mlReturn >= 0 ? '↑' : '↓'} {(mlReturn * 100).toFixed(1)}%
-                </p>
-                <p className="text-gray-400 text-sm font-medium">Expected Return</p>
-            </div>
-        </div>
-
-        <div className="flex-1 bg-gray-800/40 border border-gray-700 p-4 rounded-xl shadow-lg">
-            <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">
-                Model Confidence
-            </p>
-            <p className="text-2xl font-bold text-white">
-                {mlReturn > 0.05 || mlReturn < -0.05 ? "High Conviction" : "Moderate Trend"}
-            </p>
-        </div>
+      </div>
     </div>
-)}
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={sim}>
-                                <XAxis dataKey="Date" hide />
-                                <YAxis domain={["auto", "auto"]} orientation="right" tick={{fontSize: 12}} />
-                                <Tooltip 
-                                    formatter={(val: any) => [`$${Number(val).toFixed(2)}`, "Price"]}
-                                    contentStyle={{ backgroundColor: "#111827", borderRadius: "8px", border: "1px solid #374151" }} 
-                                />
-                                <Area type="monotone" dataKey="p50" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} strokeWidth={3} />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
+  )
 
-                    <div className="mt-6 p-4 bg-gray-950 rounded-lg border border-gray-800">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Target Price Probability</label>
-                        <div className="flex items-center gap-4 mt-2">
-                            <input
-                                className="p-2 bg-gray-800 rounded text-white w-24 border border-gray-700"
-                                type="number"
-                                value={targetPrice || ''}
-                                onChange={(e) => setTargetPrice(e.target.value)}
-                                placeholder="Target $"
-                            />
-                            {prob !== null && (
-                                <div className="flex flex-col">
-                                    <span className="text-2xl font-black text-green-400">{(prob).toFixed(1)}%</span>
-                                    <span className="text-[10px] text-gray-500 text-nowrap">Likelihood of hitting target</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+
+function StatCard({ label, value, sub, color = "" }: {
+  label: string; value: string | number; sub?: string; color?: string
+}) {
+  return (
+    <div className="bg-gray-900/60 rounded-xl p-3 flex flex-col justify-between border border-white/5">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">{label}</p>
+      <p className={`text-lg font-semibold truncate ${color || "text-white"}`}>{value}</p>
+      {sub && <p className="text-[10px] text-gray-600 mt-0.5">{sub}</p>}
     </div>
-)
+  )
+}
 
-
-function StatCard({ label, value, sub, color = "text-white" }: any) {
-    return (
-        <div className="bg-gray-900 p-3 md:p-4 rounded-xl border border-gray-800 flex flex-col justify-center">
-            <p className="text-gray-500 text-[10px] md:text-xs font-bold uppercase tracking-tight">{label}</p>
-            <p className={`text-lg md:text-xl font-bold truncate ${color}`}>{value}</p>
-            {sub && <p className="text-[10px] text-gray-600">{sub}</p>}
-        </div>
-    )
+function SignalPill({ signal }: { signal: string }) {
+  const styles: Record<string, string> = {
+    Buy: "bg-green-900/40 text-green-400 border-green-800/50",
+    Sell: "bg-red-900/40 text-red-400 border-red-800/50",
+    Hold: "bg-amber-900/40 text-amber-400 border-amber-800/50",
+  }
+  return (
+    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${styles[signal] ?? "bg-gray-800 text-gray-400"}`}>
+      {signal}
+    </span>
+  )
 }}
