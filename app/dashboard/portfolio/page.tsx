@@ -58,7 +58,7 @@ export default function Portfolio() {
 
         {data && (
             <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Max Sharpe Card */}
+                
                 <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
                     <h2 className="text-xl font-bold mb-4 text-blue-400">⭐ Max Sharpe</h2>
                     <div className="space-y-1 text-gray-300">
