@@ -14,11 +14,26 @@ export default function Stocks() {
     const [mlReturn, setMlReturn] = useState<number | null>(null);
     const [targetPrice, setTargetPrice] = useState<any>(null)
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const [backtestData, setBacktestData] = useState<any>(null);
+    const [isBacktesting, setIsBacktesting] = useState(false);
     const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
 };
-    
+async function runBacktest() {
+    setIsBacktesting(true);
+    try {
+        const res = await fetch(`${API_BASE}/stock/${ticker}/backtest`);
+        const json = await res.json();
+        setBacktestData(json);
+    } catch (error) {
+        console.error("Backtest Error:", error);
+    }
+    setIsBacktesting(false);
+}
+
+
 async function Analyze() {
+    if (!ticker) return;
     setLoad(true);
     const hasTarget = targetPrice !== null && targetPrice !== "";const simUrl = `${API_BASE}/stock/${ticker}/simulate${hasTarget ? `?target_price=${targetPrice}` : ''}`;
     try {
@@ -48,6 +63,7 @@ async function Analyze() {
         setData(sData);
         setAnalysis(aData);
         setChartData(hData);
+        runBacktest();
         
     } catch (error) {
         console.error("Talos Engine Error:", error);
@@ -239,7 +255,6 @@ useEffect(() => {
               </ResponsiveContainer>
             </div>
 
-            {/* Target probability */}
             <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-4">
               <div>
                 <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1.5 tracking-widest">Target price</p>
@@ -260,6 +275,63 @@ useEffect(() => {
             </div>
           </div>
         )}
+{isBacktesting && (
+  <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-12 col-span-1 lg:col-span-2 flex flex-col items-center justify-center">
+    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+    <p className="text-sm text-gray-400 font-medium">Running 2-year RSI Strategy Backtest...</p>
+  </div>
+)}
+        {/* Insert this below your Monte Carlo Chart <div> */}
+{backtestData && !isBacktesting && (
+  <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-6 col-span-1 lg:col-span-2">
+    <div className="flex justify-between items-center mb-6">
+      <div>
+        <h3 className="text-lg font-bold">RSI Backtest Results</h3>
+        <p className="text-xs text-gray-500">Strategy: Buy At RSI Less Than 30, Sell RSI At More Than 70 (2 Year History)</p>
+      </div>
+      <div className="flex gap-4">
+        <div className="text-right">
+          <p className="text-[10px] text-gray-500 uppercase">Strategy Return</p>
+          <p className={`text-xl font-bold ${backtestData.total_return > 0 ? "text-green-400" : "text-red-400"}`}>
+            {backtestData.total_return}%
+          </p>
+        </div>
+        <div className="text-right border-l border-white/10 pl-4">
+          <p className="text-[10px] text-gray-500 uppercase">Buy & Hold</p>
+          <p className="text-xl font-bold text-gray-300">{backtestData.buy_hold_return}%</p>
+        </div>
+      </div>
+    </div>
+
+    {/* Backtest Stats Grid */}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Sharpe Ratio" value={backtestData.sharpe} />
+        <StatCard label="Max Drawdown" value={`${backtestData.max_drawdown}%`} color="text-red-400" />
+        <StatCard label="Buy Signals" value={backtestData.buy_signals} />
+        <StatCard label="Sell Signals" value={backtestData.sell_signals} />
+    </div>
+
+    {/* Strategy Performance Chart */}
+    <div className="h-[300px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={backtestData.portfolio.map((val: number, i: number) => ({
+            name: i,
+            strategy: val,
+            buyHold: backtestData.buy_hold[i]
+        }))}>
+          <XAxis hide />
+          <YAxis domain={["auto", "auto"]} tick={{fontSize: 10}} />
+          <Tooltip 
+            contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151" }}
+            formatter={(v: any) => [`$${Number(v).toFixed(2)}`]}
+          />
+          <Line type="monotone" dataKey="strategy" stroke="#10b981" strokeWidth={2} dot={false} name="RSI Strategy" />
+          <Line type="monotone" dataKey="buyHold" stroke="#6b7280" strokeWidth={1} strokeDasharray="5 5" dot={false} name="Buy & Hold" />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+)}
       </div>
     </div>
   )
