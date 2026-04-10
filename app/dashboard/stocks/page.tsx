@@ -1,14 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Activity,    // <--- Add this
-  DollarSign, 
-  Users, 
-  Landmark 
-} from "lucide-react";
+import { Activity, Newspaper, ExternalLink } from 'lucide-react';
 export default function Stocks() {
     const [ticker, setTicker] = useState('')
     const [data, setData] = useState<any>(null)
