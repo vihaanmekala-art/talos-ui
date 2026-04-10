@@ -1,7 +1,14 @@
 "use client"
 import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
-
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Activity,    // <--- Add this
+  DollarSign, 
+  Users, 
+  Landmark 
+} from "lucide-react";
 export default function Stocks() {
     const [ticker, setTicker] = useState('')
     const [data, setData] = useState<any>(null)
@@ -16,6 +23,7 @@ export default function Stocks() {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const [backtestData, setBacktestData] = useState<any>(null);
     const [isBacktesting, setIsBacktesting] = useState(false);
+    const [sentiment, setSentiment] = useState<any>(null);
     const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
 };
@@ -50,7 +58,9 @@ async function Analyze() {
         const hData = await resHist.json();
         const simData = await resSim.json();
 
-       
+       const resSentiment = await fetch(`${API_BASE}/stock/${ticker}/sentiment`);
+        const sentData = await resSentiment.json();
+        setSentiment(sentData);
         if (simData && simData.data) {
             setSim(simData.data);         
             setProb(simData.probability);
@@ -332,8 +342,66 @@ useEffect(() => {
     </div>
   </div>
 )}
+{sentiment && (
+  <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-6">
+    <div className="flex justify-between items-center mb-6">
+      <h3 className="font-bold text-white flex items-center gap-2">
+        <Activity size={18} className="text-blue-400" /> Market Sentiment
+      </h3>
+      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
+        sentiment.score > 0 ? "bg-green-500/10 text-green-400 border border-green-500/20" : 
+        sentiment.score < 0 ? "bg-red-500/10 text-red-400 border border-red-500/20" : 
+        "bg-gray-500/10 text-gray-400 border border-gray-500/20"
+      }`}>
+        {sentiment.label}
+      </span>
+    </div>
+
+    {/* Sentiment Meter */}
+    <div className="relative h-4 bg-gray-800 rounded-full overflow-hidden mb-6">
+      {/* Indicator needle/bar */}
+      <div 
+        className={`absolute h-full transition-all duration-1000 ${
+          sentiment.score > 0 ? "bg-green-500" : "bg-red-500"
+        }`}
+        style={{ 
+          width: `${Math.abs(sentiment.score) * 100}%`,
+          left: '50%',
+          transform: sentiment.score < 0 ? `translateX(-100%)` : 'none'
+        }}
+      />
+      <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/20 z-10" /> {/* Center mark */}
+    </div>
+
+    {/* News Feed */}
+    <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+      {sentiment.articles.map((article: any, i: number) => (
+        <a 
+          key={i} 
+          href={article.url} 
+          target="_blank" 
+          rel="noreferrer"
+          className="block p-3 bg-white/5 rounded-xl border border-white/5 hover:border-blue-500/30 transition group"
+        >
+          <div className="flex justify-between items-start gap-3">
+            <p className="text-xs text-gray-300 group-hover:text-white transition line-clamp-2">
+              {article.headline}
+            </p>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+              article.sentiment === "Bullish" ? "text-green-400" : 
+              article.sentiment === "Bearish" ? "text-red-400" : "text-gray-500"
+            }`}>
+              {article.sentiment}
+            </span>
+          </div>
+        </a>
+      ))}
+    </div>
+  </div>
+)}
       </div>
     </div>
+  
   )
 
 
