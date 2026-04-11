@@ -30,6 +30,7 @@ export default function Stocks() {
     const [backtestData, setBacktestData] = useState<any>(null);
     const [isBacktesting, setIsBacktesting] = useState(false);
     const [sentiment, setSentiment] = useState<any>(null);
+    const [recents, setRecents] = useState<string[]>([]);
     const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
 };
@@ -46,10 +47,12 @@ async function runBacktest() {
 }
 
 
-async function Analyze() {
+async function Analyze(manualTicker?: string) {
     if (!ticker) return;
+    const activeTicker = manualTicker || ticker; 
+    if (!activeTicker) return;
     setLoad(true);
-    const hasTarget = targetPrice !== null && targetPrice !== "";const simUrl = `${API_BASE}/stock/${ticker}/simulate${hasTarget ? `?target_price=${targetPrice}` : ''}`;
+    const hasTarget = targetPrice !== null && targetPrice !== ""; const simUrl = `${API_BASE}/stock/${activeTicker}/simulate${hasTarget ? `?target_price=${targetPrice}` : ''}`;
     try {
         const [resStock, resAnalysis, resHist, resSim] = await Promise.all([
             fetch(`${API_BASE}/stock/${ticker}`),
@@ -84,7 +87,11 @@ async function Analyze() {
     } catch (error) {
         console.error("Talos Engine Error:", error);
     }
-    
+    setRecents(prev => {
+        const updated = [activeTicker, ...prev.filter(t => t !== activeTicker)].slice(0, 5);
+        localStorage.setItem("talos_recents", JSON.stringify(updated));
+        return updated;
+    });
     setLoad(false);
 }
 
@@ -114,7 +121,10 @@ useEffect(() => {
             return () => clearTimeout(timeoutId);
         }
     }, [targetPrice]);
-
+useEffect(() => {
+  const saved = localStorage.getItem("talos_recents");
+  if (saved) setRecents(JSON.parse(saved));
+}, []);
     return (
     <div className="p-4 max-w-6xl mx-auto space-y-6 text-white">
 
@@ -134,14 +144,36 @@ useEffect(() => {
             onKeyDown={e => e.key === "Enter" && Analyze()}
           />
           <button
-            onClick={Analyze}
+            onClick={() => Analyze()}
             disabled={load}
             className="px-6 py-2.5 bg-white text-black text-sm font-semibold rounded-xl hover:bg-gray-100 active:scale-95 transition disabled:opacity-50"
           >
             {load ? "Analyzing…" : "Analyze"}
           </button>
         </div>
-
+        {recents.length > 0 && (
+  <div className="flex gap-2 mt-2 overflow-x-auto pb-2 no-scrollbar">
+    <span className="text-[10px] uppercase font-bold text-gray-600 flex items-center">Recents:</span>
+    {recents.map(t => (
+      <button
+        key={t}
+        onClick={() => {
+          setTicker(t);
+          Analyze(t);
+        }}
+        className="px-3 py-1 bg-gray-900 border border-white/5 rounded-lg text-xs font-medium hover:bg-gray-800 hover:border-blue-500/50 transition active:scale-95"
+      >
+        {t}
+      </button>
+    ))}
+    <button 
+      onClick={() => { setRecents([]); localStorage.removeItem("talos_recents"); }}
+      className="text-[10px] text-gray-600 hover:text-red-400 ml-auto"
+    >
+      Clear
+    </button>
+  </div>
+)}
         <div className="flex gap-1.5 mt-3 flex-wrap">
           {Object.keys(periodMap).map(p => (
             <button
