@@ -1,5 +1,4 @@
 "use client"
-import { Landmark } from "lucide-react"
 import { useState } from "react"
 import { PieChart, ResponsiveContainer, Cell, Pie, Tooltip } from "recharts"
 
@@ -9,7 +8,25 @@ export default function Portfolio() {
     const [spin, setSpin] = useState<any>(false)
     const [error, setError] = useState<string | null>(null)
     const COLORS = ["#ffffff", "#9ca3af", "#4b5563", "#1f2937"];
-
+    const LandmarkIcon = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <line x1="3" y1="22" x2="21" y2="22" />
+    <line x1="6" y1="18" x2="6" y2="11" />
+    <line x1="10" y1="18" x2="10" y2="11" />
+    <line x1="14" y1="18" x2="14" y2="11" />
+    <line x1="18" y1="18" x2="18" y2="11" />
+    <polygon points="12 2 20 7 4 7 12 2" />
+  </svg>
+);
     async function Optimize() {
         if (!tickers.includes(',')) {
         setError("Please enter at least two tickers separated by a comma.");
@@ -150,7 +167,7 @@ export default function Portfolio() {
     {/* Empty State */}
     {!data && !spin && (
       <div className="border-2 border-dashed border-white/5 rounded-3xl h-64 flex flex-col items-center justify-center text-gray-600">
-        <Landmark size={40} className="mb-4 opacity-20" />
+        <LandmarkIcon className="mb-4 opacity-20" />
         <p className="text-sm">Enter tickers above to calculate the Efficient Frontier</p>
       </div>
     )}
