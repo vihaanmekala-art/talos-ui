@@ -330,7 +330,7 @@ useEffect(() => {
     {/* Strategy Performance Chart */}
     <div className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={backtestData.portfolio.map((val: number, i: number) => ({
+        <LineChart data={backtestData?.portfolio?.map((val: number, i: number) => ({
             name: i,
             strategy: val,
             buyHold: backtestData.buy_hold[i]
@@ -348,7 +348,7 @@ useEffect(() => {
     </div>
   </div>
 )}
-{sentiment && (
+{sentiment && sentiment.articles && (
   <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-6">
     <div className="flex justify-between items-center mb-6">
       <h3 className="font-bold text-white flex items-center gap-2">
@@ -382,7 +382,7 @@ useEffect(() => {
 
     {/* News Feed */}
     <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-      {sentiment.articles.map((article: any, i: number) => (
+      {sentiment?.articles?.map((article: any, i: number) => (
         <a 
           key={i} 
           href={article.url} 

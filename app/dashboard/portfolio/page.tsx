@@ -125,14 +125,14 @@ export default function Portfolio() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={Object.entries(data[strat.key].weights).map(([name, value]) => ({ name, value }))}
+                      data={Object?.entries(data[strat.key].weights).map(([name, value]) => ({ name, value }))}
                       dataKey="value"
                       innerRadius={60}
                       outerRadius={80}
                       paddingAngle={5}
                       stroke="none"
                     >
-                      {Object.entries(data[strat.key].weights).map((_, index) => (
+                      {Object?.entries(data[strat.key].weights).map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -148,7 +148,7 @@ export default function Portfolio() {
 
               <div className="space-y-3">
                 <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Weight Breakdown</h3>
-                {Object.entries(data[strat.key].weights).map(([ticker, weight]: any, index) => (
+                {Object?.entries(data[strat.key].weights).map(([ticker, weight]: any, index) => (
                   <div key={ticker} className="flex items-center justify-between group">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
