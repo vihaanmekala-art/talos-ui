@@ -1,8 +1,21 @@
 "use client"
 import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
-import { Activity, Newspaper, ExternalLink } from 'lucide-react';
 export default function Stocks() {
+  const ActivityIcon = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
     const [ticker, setTicker] = useState('')
     const [data, setData] = useState<any>(null)
     const [chartData, setChartData] = useState<any>(null)
@@ -339,7 +352,8 @@ useEffect(() => {
   <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-6">
     <div className="flex justify-between items-center mb-6">
       <h3 className="font-bold text-white flex items-center gap-2">
-        <Activity size={18} className="text-blue-400" /> Market Sentiment
+        <ActivityIcon className="text-blue-400 w-5 h-5" />
+        <span>Market Sentiment</span>
       </h3>
       <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
         sentiment.score > 0 ? "bg-green-500/10 text-green-400 border border-green-500/20" : 
