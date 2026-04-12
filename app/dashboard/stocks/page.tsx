@@ -33,6 +33,7 @@ export default function Stocks() {
     const [sentiment, setSentiment] = useState<any>(null);
     const [recents, setRecents] = useState<string[]>([]);
     const { data: session, status } = useSession();
+    const [isGuest, setIsGuest] = useState(false);
     const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
 };
@@ -76,43 +77,39 @@ async function saveTarget(newPrice: number) {
         console.error("Error saving target:", error);
     }
 }
-
 async function Analyze(manualTicker?: string) {
-    if (!ticker) return;
+    if (!ticker && !manualTicker) return;
     const activeTicker = manualTicker || ticker; 
-    if (!activeTicker) return;
     setLoad(true);
-    const hasTarget = targetPrice !== null && targetPrice !== ""; const simUrl = `${API_BASE}/stock/${activeTicker}/simulate${hasTarget ? `?target_price=${targetPrice}` : ''}`;
+
     try {
-        const [resStock, resAnalysis, resHist, resSim] = await Promise.all([
-            fetch(`${API_BASE}/stock/${ticker}`),
-            fetch(`${API_BASE}/analyze/${ticker}`),
-            fetch(`${API_BASE}/stock/${ticker}/history?period_days=${periodMap[period]}`),
-            fetch(simUrl) 
+        const [resStock, resAnalysis, resHist, resSim, resSent] = await Promise.all([
+            fetch(`${API_BASE}/stock/${activeTicker}`),
+            fetch(`${API_BASE}/analyze/${activeTicker}`),
+            fetch(`${API_BASE}/stock/${activeTicker}/history?period_days=${periodMap[period]}`),
+            fetch(`${API_BASE}/stock/${activeTicker}/simulate${targetPrice ? `?target_price=${targetPrice}` : ''}`),
+            fetch(`${API_BASE}/stock/${activeTicker}/sentiment`)
         ]);
 
-  
         const sData = await resStock.json();
         const aData = await resAnalysis.json();
         const hData = await resHist.json();
-        const simData = await resSim.json();
-
-       const resSentiment = await fetch(`${API_BASE}/stock/${activeTicker}/sentiment`);
-        const sentData = await resSentiment.json();
+        const simData = await resSim.json(); // Don't forget this!
+        const sentData = await resSent.json();
+        
+        setData(sData);
+        setAnalysis(aData);
+        setChartData(hData);
         setSentiment(sentData);
+        
+        // ADD THIS PART BACK IN:
         if (simData && simData.data) {
             setSim(simData.data);         
             setProb(simData.probability);
             setMlReturn(simData.ml_expected_price);
-        } else {
-            setSim(null);
-            setProb(null);
         }
-
-        setData(sData);
-        setAnalysis(aData);
-        setChartData(hData);
-        runBacktest();
+        
+        if (session) runBacktest();
         
     } catch (error) {
         console.error("Talos Engine Error:", error);
@@ -174,26 +171,39 @@ useEffect(() => {
   const saved = localStorage.getItem("talos_recents");
   if (saved) setRecents(JSON.parse(saved));
 }, []);
+useEffect(() => {
+    if (session) {
+        setIsGuest(false);
+    }
+}, [session]);
 if (status === "loading") {
   return <div className="flex h-screen items-center justify-center text-white">Loading Talos...</div>;
 }
 
 // 2. If no one is logged in, show the "Welcome" screen with a Login button
-if (!session) {
-  return (
-    <div className="flex h-screen flex-col items-center justify-center bg-black text-white p-6 text-center">
-      <h1 className="text-4xl font-bold mb-4">Talos Engine</h1>
-      <p className="text-gray-400 mb-8 max-w-md">
-        Advanced quantitative terminal for high-growth assets and portfolio optimization.
-      </p>
-      <button 
-        onClick={() => signIn("google")}
-        className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold transition transform active:scale-95"
-      >
-        Sign in with Google to Launch
-      </button>
-    </div>
-  );
+if (!session && !isGuest) {
+    return (
+        <div className="flex h-screen flex-col items-center justify-center bg-black text-white p-6 text-center">
+            <h1 className="text-4xl font-bold mb-4 tracking-tight">TALOS <span className="text-blue-500">ENGINE</span></h1>
+            <p className="text-gray-400 mb-8 max-w-md">Access the quantitative terminal.</p>
+            
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+                <button 
+                    onClick={() => signIn("google")}
+                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold transition transform active:scale-95"
+                >
+                    Sign in with Google
+                </button>
+                
+                <button 
+                    onClick={() => setIsGuest(true)}
+                    className="px-8 py-3 bg-gray-900 hover:bg-gray-800 border border-white/10 rounded-xl font-semibold text-gray-400 transition"
+                >
+                    Continue as Guest
+                </button>
+            </div>
+        </div>
+    );
 }
     return (
     <div className="p-4 max-w-6xl mx-auto space-y-6 text-white">
@@ -329,9 +339,22 @@ if (!session) {
 
         {/* Monte Carlo projection */}
         {sim && (
-          <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-4">
-            <div className="flex items-start justify-between mb-4">
-              <div>
+          <div className="relative bg-gray-900/60 border border-white/5 rounded-2xl p-4 overflow-hidden">
+            {isGuest && (
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md">
+      <div className="bg-blue-600/20 p-2 rounded-full mb-2 border border-blue-500/50">
+        <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2V7a5 5 0 00-5-5zM7 7a3 3 0 116 0v2H7V7z" />
+        </svg>
+      </div>
+      <p className="text-[11px] font-bold text-white uppercase tracking-widest">Pro Projection</p>
+      <button onClick={() => signIn("google")} className="text-[10px] text-blue-400 mt-1 hover:underline">
+        Sign in to unlock
+      </button>
+    </div>
+  )}
+            <div className={isGuest ? "blur-sm grayscale opacity-30 select-none pointer-events-none" : ""}>
+              <div className="flex items-start justify-between mb-4">
                 <p className="font-semibold text-white text-sm">30-day projection</p>
                 <p className="text-xs text-gray-500">Monte Carlo · 1,000 paths</p>
               </div>
@@ -375,24 +398,21 @@ if (!session) {
 
             <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-4">
               <div>
-                <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1.5 tracking-widest">Target price</p>
-                <input
-  className="w-24 px-3 py-1.5 bg-gray-800 border border-white/10 rounded-lg text-white text-sm outline-none focus:ring-2 focus:ring-blue-500/40"
-  type="number"
-  step="0.01"
-  placeholder="0.00"
-  // Controlled value:
-  value={targetPrice || ''} 
-  // Handler 1: Update the UI as you type
-  onChange={(e) => setTargetPrice(e.target.value)} 
-  // Handler 2: Save to the Database only when you click away
-  onBlur={() => {
-    if (targetPrice && session?.user?.id) {
-      saveTarget(parseFloat(targetPrice));
-    }
-  }}
-/>
-              </div>
+  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1.5 tracking-widest">Target price</p>
+  <input
+    disabled={isGuest} // Prevents guest from typing
+    className={`w-24 px-3 py-1.5 rounded-lg text-sm outline-none ${
+        isGuest ? "bg-gray-900 text-gray-600 cursor-not-allowed" : "bg-gray-800 text-white"
+    }`}
+    placeholder={isGuest ? "Locked" : "0.00"}
+    // ... rest of your props
+  />
+  {isGuest && (
+    <p className="text-[9px] text-blue-500 mt-1 cursor-pointer" onClick={() => signIn("google")}>
+        Sign in to save targets
+    </p>
+  )}
+</div>
               {prob !== null && targetPrice && (
                 <div>
                   <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1 tracking-widest">Probability</p>
