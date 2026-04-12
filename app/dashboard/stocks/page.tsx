@@ -67,7 +67,7 @@ async function Analyze(manualTicker?: string) {
         const hData = await resHist.json();
         const simData = await resSim.json();
 
-       const resSentiment = await fetch(`${API_BASE}/stock/${ticker}/sentiment`);
+       const resSentiment = await fetch(`${API_BASE}/stock/${activeTicker}/sentiment`);
         const sentData = await resSentiment.json();
         setSentiment(sentData);
         if (simData && simData.data) {
