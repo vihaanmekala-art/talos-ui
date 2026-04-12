@@ -309,7 +309,7 @@ useEffect(() => {
                 <input
                   className="w-24 px-3 py-1.5 bg-gray-800 border border-white/10 rounded-lg text-white text-sm outline-none focus:ring-2 focus:ring-blue-500/40"
                   type="number"
-                  value={targetPrice}
+                  value={targetPrice || ''}
                   onChange={e => setTargetPrice(e.target.value)}
                   placeholder="$ target"
                 />
