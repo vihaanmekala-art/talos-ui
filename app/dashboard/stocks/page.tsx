@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
+import { useSession, signIn, signOut } from "next-auth/react";
 export default function Stocks() {
   const ActivityIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -31,9 +32,15 @@ export default function Stocks() {
     const [isBacktesting, setIsBacktesting] = useState(false);
     const [sentiment, setSentiment] = useState<any>(null);
     const [recents, setRecents] = useState<string[]>([]);
+    const { data: session, status } = useSession();
     const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
 };
+
+// 1. Show a loading state while NextAuth checks the cookies
+
+
+// 3. If they ARE logged in, the rest of your code (the dashboard) runs below...
 async function runBacktest() {
     setIsBacktesting(true);
     try {
@@ -45,7 +52,30 @@ async function runBacktest() {
     }
     setIsBacktesting(false);
 }
+async function saveTarget(newPrice: number) {
+    // If there's no ticker or no price, don't do anything
+    if (!ticker || !newPrice) return;
 
+    try {
+        const response = await fetch(`${API_BASE}/stock/target`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                user_id: session?.user?.id || "guest_user", // Fallback to guest if no login
+                ticker: ticker.toUpperCase(),
+                target_price: newPrice,
+            }),
+        });
+
+        if (response.ok) {
+            console.log("Target saved to Talos database");
+        }
+    } catch (error) {
+        console.error("Error saving target:", error);
+    }
+}
 
 async function Analyze(manualTicker?: string) {
     if (!ticker) return;
@@ -122,9 +152,49 @@ useEffect(() => {
         }
     }, [targetPrice]);
 useEffect(() => {
+    const fetchSavedTarget = async () => {
+        // We only fetch from the DB if we have a user ID
+        const userId = session?.user?.id; 
+        
+        if (userId && ticker) {
+            try {
+                const res = await fetch(`${API_BASE}/stock/${ticker}/target/${userId}`);
+                const data = await res.json();
+                if (data.target_price) {
+                    setTargetPrice(data.target_price);
+                }
+            } catch (err) {
+                console.log("No saved target found for this user.");
+            }
+        }
+    };
+    fetchSavedTarget();
+}, [ticker, session]);
+useEffect(() => {
   const saved = localStorage.getItem("talos_recents");
   if (saved) setRecents(JSON.parse(saved));
 }, []);
+if (status === "loading") {
+  return <div className="flex h-screen items-center justify-center text-white">Loading Talos...</div>;
+}
+
+// 2. If no one is logged in, show the "Welcome" screen with a Login button
+if (!session) {
+  return (
+    <div className="flex h-screen flex-col items-center justify-center bg-black text-white p-6 text-center">
+      <h1 className="text-4xl font-bold mb-4">Talos Engine</h1>
+      <p className="text-gray-400 mb-8 max-w-md">
+        Advanced quantitative terminal for high-growth assets and portfolio optimization.
+      </p>
+      <button 
+        onClick={() => signIn("google")}
+        className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold transition transform active:scale-95"
+      >
+        Sign in with Google to Launch
+      </button>
+    </div>
+  );
+}
     return (
     <div className="p-4 max-w-6xl mx-auto space-y-6 text-white">
 
@@ -307,12 +377,21 @@ useEffect(() => {
               <div>
                 <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1.5 tracking-widest">Target price</p>
                 <input
-                  className="w-24 px-3 py-1.5 bg-gray-800 border border-white/10 rounded-lg text-white text-sm outline-none focus:ring-2 focus:ring-blue-500/40"
-                  type="number"
-                  value={targetPrice || ''}
-                  onChange={e => setTargetPrice(e.target.value)}
-                  placeholder="$ target"
-                />
+  className="w-24 px-3 py-1.5 bg-gray-800 border border-white/10 rounded-lg text-white text-sm outline-none focus:ring-2 focus:ring-blue-500/40"
+  type="number"
+  step="0.01"
+  placeholder="0.00"
+  // Controlled value:
+  value={targetPrice || ''} 
+  // Handler 1: Update the UI as you type
+  onChange={(e) => setTargetPrice(e.target.value)} 
+  // Handler 2: Save to the Database only when you click away
+  onBlur={() => {
+    if (targetPrice && session?.user?.id) {
+      saveTarget(parseFloat(targetPrice));
+    }
+  }}
+/>
               </div>
               {prob !== null && targetPrice && (
                 <div>
