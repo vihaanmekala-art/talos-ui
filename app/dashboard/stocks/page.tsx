@@ -180,7 +180,6 @@ if (status === "loading") {
   return <div className="flex h-screen items-center justify-center text-white">Loading Talos...</div>;
 }
 
-// 2. If no one is logged in, show the "Welcome" screen with a Login button
 if (!session && !isGuest) {
     return (
         <div className="flex h-screen flex-col items-center justify-center bg-black text-white p-6 text-center">
