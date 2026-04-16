@@ -1,8 +1,9 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
 import { useSession, signIn, signOut } from "next-auth/react";
 export default function Stocks() {
+  
   const ActivityIcon = ({ className }: { className?: string }) => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
@@ -34,6 +35,10 @@ export default function Stocks() {
     const [recents, setRecents] = useState<string[]>([]);
     const { data: session, status } = useSession();
     const [isGuest, setIsGuest] = useState(false);
+    const [mounted, setMounted] = useState(false); 
+    const chartRef = useRef<HTMLDivElement | null>(null);
+    const monteRef = useRef<HTMLDivElement | null>(null);
+    // To prevent hydration mismatch
     const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
 };
@@ -42,16 +47,18 @@ export default function Stocks() {
 
 
 // 3. If they ARE logged in, the rest of your code (the dashboard) runs below...
-async function runBacktest() {
-    setIsBacktesting(true);
-    try {
-        const res = await fetch(`${API_BASE}/stock/${ticker}/backtest`);
-        const json = await res.json();
-        setBacktestData(json);
-    } catch (error) {
-        console.error("Backtest Error:", error);
-    }
-    setIsBacktesting(false);
+async function runBackTest(tickerToTest: string) {
+  if (!tickerToTest) return;
+
+  setIsBacktesting(true);
+  try {
+    const res = await fetch(`${API_BASE}/stock/${tickerToTest}/backtest`);
+    const json = await res.json();
+    setBacktestData(json);
+  } catch (error) {
+    console.error("Backtest Error:", error);
+  }
+  setIsBacktesting(false);
 }
 async function saveTarget(newPrice: number) {
     // If there's no ticker or no price, don't do anything
@@ -94,22 +101,20 @@ async function Analyze(manualTicker?: string) {
         const sData = await resStock.json();
         const aData = await resAnalysis.json();
         const hData = await resHist.json();
-        const simData = await resSim.json(); // Don't forget this!
+        const simData = await resSim.json();
         const sentData = await resSent.json();
         
         setData(sData);
         setAnalysis(aData);
         setChartData(hData);
         setSentiment(sentData);
-        
-        // ADD THIS PART BACK IN:
+    
         if (simData && simData.data) {
             setSim(simData.data);         
             setProb(simData.probability);
             setMlReturn(simData.ml_expected_price);
         }
-        
-        if (session) runBacktest();
+         runBackTest(activeTicker);
         
     } catch (error) {
         console.error("Talos Engine Error:", error);
@@ -121,7 +126,12 @@ async function Analyze(manualTicker?: string) {
     });
     setLoad(false);
 }
-
+console.log("Stocks Render:", { 
+    hasData: !!backtestData, 
+    isMounted: mounted, 
+    status: status,
+    windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'SSR'
+});
     useEffect(() => {
         if (ticker && data){
             async function chart() {
@@ -176,11 +186,66 @@ useEffect(() => {
         setIsGuest(false);
     }
 }, [session]);
+useEffect(() => {
+  setMounted(true);
+
+  const timer = setTimeout(() => {
+    window.dispatchEvent(new Event('resize'));
+  }, 200);
+
+  return () => clearTimeout(timer);
+}, []);
+
+useEffect(() => {
+  if (chartRef.current) {
+    let el: HTMLElement | null = chartRef.current;
+    let depth = 0;
+
+    while (el && depth < 5) {
+      const rect = el.getBoundingClientRect();
+      console.log(`🔍 Parent level ${depth}`, {
+        tag: el.tagName,
+        width: rect.width,
+        height: rect.height,
+        display: getComputedStyle(el).display
+      });
+      el = el.parentElement;
+      depth++;
+    }
+  }
+}, [backtestData]);
+useEffect(() => {
+  if (sim) {
+    setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 100);
+  }
+}, [sim]);
+useEffect(() => {
+  if (monteRef.current) {
+    const rect = monteRef.current.getBoundingClientRect();
+    console.log("📉 Monte Carlo size:", rect.width, rect.height);
+  }
+}, [sim, mounted]);
+useEffect(() => {
+  if (chartRef.current) {
+    const rect = chartRef.current.getBoundingClientRect();
+    console.log("📦 Chart container size:", {
+      width: rect.width,
+      height: rect.height
+    });
+  }
+}, [backtestData]);
 if (status === "loading") {
   return <div className="flex h-screen items-center justify-center text-white">Loading Talos...</div>;
 }
 
 if (!session && !isGuest) {
+  console.log("🎯 FINAL CHECK:", {
+  readyToRender:
+    mounted &&
+    backtestData?.portfolio?.length > 0,
+});
     return (
         <div className="flex h-screen flex-col items-center justify-center bg-black text-white p-6 text-center">
             <h1 className="text-4xl font-bold mb-4 tracking-tight">TALOS <span className="text-blue-500">ENGINE</span></h1>
@@ -314,122 +379,133 @@ if (!session && !isGuest) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Price history */}
-        {chartData && (
-          <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-4">
-            <div className="mb-4">
-              <p className="font-semibold text-white text-sm">Price history</p>
-              <p className="text-xs text-gray-500">{ticker} · {period}</p>
-            </div>
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <XAxis dataKey="Date" hide />
-                  <YAxis domain={["auto", "auto"]} tick={{ fontSize: 11, fill: "#6b7280" }} width={55} />
-                  <Tooltip
-                    formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Price"]}
-                    contentStyle={{ backgroundColor: "#111827", border: "1px solid #1f2937", borderRadius: "10px", fontSize: 12 }}
-                  />
-                  <Line type="monotone" dataKey="Close" stroke="#3b82f6" dot={false} strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+        {mounted && backtestData?.portfolio?.length > 0 && (
+          <div className="w-full h-[350px] min-h-[350px]">
+  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Equity Curve</h3>
+  
+  {/* The parent MUST have a strict pixel height, not percentages */}
+  <div className="w-full min-w-0"> 
+  <ResponsiveContainer width="100%" height={160}>
+      <LineChart 
+        data={backtestData.portfolio.map((val: number, i: number) => ({
+          name: i,
+          strategy: val,
+          buyHold: backtestData.buy_hold ? backtestData.buy_hold[i] : null
+        }))}
+        
+      >
+        <XAxis dataKey="name" hide />
+        <YAxis domain={["auto", "auto"]} tick={{fontSize: 10, fill: "#4b5563"}} width={45} />
+        <Tooltip contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151" }} />
+        <Line type="monotone" dataKey="strategy" stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
+        <Line type="monotone" dataKey="buyHold" stroke="#4b5563" strokeWidth={1} strokeDasharray="4 4" dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+</div>
         )}
 
         {/* Monte Carlo projection */}
+      
         {sim && (
-          <div className="relative bg-gray-900/60 border border-white/5 rounded-2xl p-4 overflow-hidden">
-            {isGuest && (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md">
-      <div className="bg-blue-600/20 p-2 rounded-full mb-2 border border-blue-500/50">
-        <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2V7a5 5 0 00-5-5zM7 7a3 3 0 116 0v2H7V7z" />
-        </svg>
+  <div className="relative bg-gray-900/60 border border-white/5 rounded-2xl p-4 overflow-hidden">
+    {isGuest && (
+      <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md">
+        <div className="bg-blue-600/20 p-2 rounded-full mb-2 border border-blue-500/50">
+          <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2V7a5 5 0 00-5-5zM7 7a3 3 0 116 0v2H7V7z" />
+          </svg>
+        </div>
+        <p className="text-[11px] font-bold text-white uppercase tracking-widest">Pro Projection</p>
+        <button onClick={() => signIn("google")} className="text-[10px] text-blue-400 mt-1 hover:underline">
+          Sign in to unlock
+        </button>
       </div>
-      <p className="text-[11px] font-bold text-white uppercase tracking-widest">Pro Projection</p>
-      <button onClick={() => signIn("google")} className="text-[10px] text-blue-400 mt-1 hover:underline">
-        Sign in to unlock
-      </button>
-    </div>
-  )}
-            <div className={isGuest ? "blur-sm grayscale opacity-30 select-none pointer-events-none" : ""}>
-              <div className="flex items-start justify-between mb-4">
-                <p className="font-semibold text-white text-sm">30-day projection</p>
-                <p className="text-xs text-gray-500">Monte Carlo · 1,000 paths</p>
-              </div>
-              <span className="text-[10px] uppercase font-bold text-blue-400 bg-blue-900/30 border border-blue-900/50 px-2 py-1 rounded-md">
-                AI-powered
-              </span>
-            </div>
+    )}
 
-            {mlReturn !== null && (
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="bg-gray-800/50 border border-white/5 rounded-xl p-3">
-                  <p className="text-[10px] uppercase font-semibold tracking-widest text-gray-500 mb-1">AI bias (30D)</p>
-                  <p className={`text-2xl font-bold ${mlReturn >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {mlReturn >= 0 ? "↑" : "↓"} {(mlReturn * 100).toFixed(1)}%
-                  </p>
-                </div>
-                <div className="bg-gray-800/50 border border-white/5 rounded-xl p-3">
-                  <p className="text-[10px] uppercase font-semibold tracking-widest text-gray-500 mb-1">Conviction</p>
-                  <p className="text-base font-semibold text-white mt-1">
-                    {Math.abs(mlReturn) > 0.05 ? "High" : "Moderate"}
-                  </p>
-                </div>
-              </div>
-            )}
+    {/* ✅ Everything in one wrapper */}
+    <div className={isGuest ? "blur-sm grayscale opacity-30 select-none pointer-events-none" : ""}>
+      <div className="flex items-start justify-between mb-4">
+        <p className="font-semibold text-white text-sm">30-day projection</p>
+        <p className="text-xs text-gray-500">Monte Carlo · 1,000 paths</p>
+      </div>
+      <span className="text-[10px] uppercase font-bold text-blue-400 bg-blue-900/30 border border-blue-900/50 px-2 py-1 rounded-md">
+        AI-powered
+      </span>
 
-            <div className="h-[160px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={sim}>
+      {mlReturn !== null && (
+        <div className="grid grid-cols-2 gap-2 mb-4 mt-4">
+          <div className="bg-gray-800/50 border border-white/5 rounded-xl p-3">
+            <p className="text-[10px] uppercase font-semibold tracking-widest text-gray-500 mb-1">AI bias (30D)</p>
+            <p className={`text-2xl font-bold ${mlReturn >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {mlReturn >= 0 ? "↑" : "↓"} {(mlReturn * 100).toFixed(1)}%
+            </p>
+          </div>
+          <div className="bg-gray-800/50 border border-white/5 rounded-xl p-3">
+            <p className="text-[10px] uppercase font-semibold tracking-widest text-gray-500 mb-1">Conviction</p>
+            <p className="text-base font-semibold text-white mt-1">
+              {Math.abs(mlReturn) > 0.05 ? "High" : "Moderate"}
+            </p>
+          </div>
+        </div>
+      )}
+
+     <div ref={monteRef} className="w-full h-[160px] min-w-0">
+        {mounted && sim?.length > 0 && monteRef.current && (
+          <ResponsiveContainer width="100%" height={160}>
+            console.log("SIM SAMPLE:", sim?.slice(0, 3));
+            <AreaChart data={sim}>
                   <XAxis dataKey="Date" hide />
-                  <YAxis domain={["auto", "auto"]} orientation="right" tick={{ fontSize: 11, fill: "#6b7280" }} width={55} />
-                  <Tooltip
-                    formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Price"]}
-                    contentStyle={{ backgroundColor: "#111827", border: "1px solid #1f2937", borderRadius: "10px", fontSize: 12 }}
-                  />
-                  <Area type="monotone" dataKey="p95" stroke="#1d4ed8" fill="#1d4ed8" fillOpacity={0.06} strokeWidth={1} strokeDasharray="4 3" dot={false} />
-                  <Area type="monotone" dataKey="p50" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2.5} dot={false} />
-                  <Area type="monotone" dataKey="p5" stroke="#1d4ed8" fill="transparent" strokeWidth={1} strokeDasharray="4 3" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+              <YAxis domain={["auto", "auto"]} orientation="right" tick={{ fontSize: 11, fill: "#6b7280" }} width={55} />
+              <Tooltip
+                formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Price"]}
+              contentStyle={{ backgroundColor: "#111827", border: "1px solid #1f2937", borderRadius: "10px", fontSize: 12 }}
+            />
+            <Area type="monotone" dataKey="p95" stroke="#1d4ed8" fill="#1d4ed8" fillOpacity={0.06} strokeWidth={1} strokeDasharray="4 3" dot={false} />
+            <Area type="monotone" dataKey="p50" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2.5} dot={false} />
+            <Area type="monotone" dataKey="p5" stroke="#1d4ed8" fill="transparent" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+          </AreaChart>
+        </ResponsiveContainer>)}
+      </div>
 
-            <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-4">
-              <div>
-  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1.5 tracking-widest">Target price</p>
-  <input
-    disabled={isGuest} // Prevents guest from typing
-    className={`w-24 px-3 py-1.5 rounded-lg text-sm outline-none ${
-        isGuest ? "bg-gray-900 text-gray-600 cursor-not-allowed" : "bg-gray-800 text-white"
-    }`}
-    placeholder={isGuest ? "Locked" : "0.00"}
-    // ... rest of your props
-  />
-  {isGuest && (
-    <p className="text-[9px] text-blue-500 mt-1 cursor-pointer" onClick={() => signIn("google")}>
-        Sign in to save targets
-    </p>
-  )}
-</div>
-              {prob !== null && targetPrice && (
-                <div>
-                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1 tracking-widest">Probability</p>
-                  <p className="text-2xl font-bold text-green-400">{Number(prob).toFixed(1)}%</p>
-                </div>
-              )}
-            </div>
+      <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-4">
+        <div>
+          <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1.5 tracking-widest">Target price</p>
+          <input
+            disabled={isGuest}
+            value={targetPrice ?? ""}
+            onChange={e => {
+              const val = parseFloat(e.target.value);
+              setTargetPrice(isNaN(val) ? null : val);
+              if (!isNaN(val)) saveTarget(val);
+            }}
+            className={`w-24 px-3 py-1.5 rounded-lg text-sm outline-none ${
+              isGuest ? "bg-gray-900 text-gray-600 cursor-not-allowed" : "bg-gray-800 text-white"
+            }`}
+            placeholder="0.00"
+          />
+        </div>
+        {prob !== null && targetPrice && (
+          <div>
+            <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1 tracking-widest">Probability</p>
+            <p className="text-2xl font-bold text-green-400">{Number(prob).toFixed(1)}%</p>
           </div>
         )}
+      </div>
+    </div>
+  </div>
+)}
+{/* 1. The Backtesting Loading State */}
 {isBacktesting && (
   <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-12 col-span-1 lg:col-span-2 flex flex-col items-center justify-center">
     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
     <p className="text-sm text-gray-400 font-medium">Running 2-year RSI Strategy Backtest...</p>
   </div>
 )}
-        {/* Insert this below your Monte Carlo Chart <div> */}
+
+{/* 2. The Strategy Results & Chart */}
 {backtestData && !isBacktesting && (
-  <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-6 col-span-1 lg:col-span-2">
+  <div className="relative bg-gray-900/60 border border-white/5 rounded-2xl p-6 col-span-1 lg:col-span-2">
     <div className="flex justify-between items-center mb-6">
       <div>
         <h3 className="text-lg font-bold">RSI Backtest Results</h3>
@@ -457,28 +533,29 @@ if (!session && !isGuest) {
         <StatCard label="Sell Signals" value={backtestData.sell_signals} />
     </div>
 
-    {/* Strategy Performance Chart */}
+    {/* Strategy Performance Chart - Working "Git History" Version */}
     <div className="h-[300px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={backtestData?.portfolio?.map((val: number, i: number) => ({
-            name: i,
-            strategy: val,
-            buyHold: backtestData.buy_hold[i]
-        }))}>
-          <XAxis hide />
-          <YAxis domain={["auto", "auto"]} tick={{fontSize: 10}} />
-          <Tooltip 
-            contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151" }}
-            formatter={(v: any) => [`$${Number(v).toFixed(2)}`]}
-          />
-          <Line type="monotone" dataKey="strategy" stroke="#10b981" strokeWidth={2} dot={false} name="RSI Strategy" />
-          <Line type="monotone" dataKey="buyHold" stroke="#6b7280" strokeWidth={1} strokeDasharray="5 5" dot={false} name="Buy & Hold" />
-        </LineChart>
-      </ResponsiveContainer>
+      {mounted && (
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={backtestData.portfolio.map((val: number, i: number) => ({
+              name: i,
+              strategy: val,
+              buyHold: backtestData.buy_hold ? backtestData.buy_hold[i] : null
+          }))}>
+            <XAxis hide />
+            <YAxis domain={["auto", "auto"]} tick={{fontSize: 10, fill: "#4b5563"}} width={40} />
+            <Tooltip 
+              contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151" }}
+              formatter={(v: any) => [`$${Number(v).toFixed(2)}`]}
+            />
+            <Line type="monotone" dataKey="strategy" stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="buyHold" stroke="#6b7280" strokeWidth={1} strokeDasharray="5 5" dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </div>
   </div>
-)}
-{sentiment && sentiment.articles && (
+)}{sentiment && sentiment.articles && (
   <div className="bg-gray-900/60 border border-white/5 rounded-2xl p-6">
     <div className="flex justify-between items-center mb-6">
       <h3 className="font-bold text-white flex items-center gap-2">
