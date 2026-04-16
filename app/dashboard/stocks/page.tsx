@@ -348,7 +348,7 @@ if (!session && !isGuest) {
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-gray-900/60 border border-white/5 rounded-xl text-sm">
           <span className="font-bold text-white text-base">{ticker}</span>
           <span className="text-gray-300 font-medium">${data?.price?.toFixed(2)}</span>
-          <SignalPill signal={analysis.sig.rsi_signal} />
+          <SignalPill signal={analysis.rsi_signal} />
           <div className="mt-1 w-full sm:mt-0 sm:ml-auto sm:w-auto flex gap-4 text-xs text-gray-500">
             <span>RSI <span className="text-gray-300 font-medium">{analysis.rsi}</span></span>
             <span>MACD <span className="text-gray-300 font-medium">{analysis.macd}</span></span>
