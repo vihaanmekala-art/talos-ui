@@ -348,7 +348,7 @@ if (!session && !isGuest) {
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-gray-900/60 border border-white/5 rounded-xl text-sm">
           <span className="font-bold text-white text-base">{ticker}</span>
           <span className="text-gray-300 font-medium">${data?.price?.toFixed(2)}</span>
-          <SignalPill signal={analysis.rsi_signal} />
+          <SignalPill signal={analysis.sig.rsi_signal} />
           <div className="mt-1 w-full sm:mt-0 sm:ml-auto sm:w-auto flex gap-4 text-xs text-gray-500">
             <span>RSI <span className="text-gray-300 font-medium">{analysis.rsi}</span></span>
             <span>MACD <span className="text-gray-300 font-medium">{analysis.macd}</span></span>
@@ -453,7 +453,6 @@ if (!session && !isGuest) {
      <div ref={monteRef} className="w-full h-[160px] min-w-0">
         {mounted && sim?.length > 0 && monteRef.current && (
           <ResponsiveContainer width="100%" height={160}>
-            console.log("SIM SAMPLE:", sim?.slice(0, 3));
             <AreaChart data={sim}>
                   <XAxis dataKey="Date" hide />
               <YAxis domain={["auto", "auto"]} orientation="right" tick={{ fontSize: 11, fill: "#6b7280" }} width={55} />
@@ -636,6 +635,8 @@ function SignalPill({ signal }: { signal: string }) {
     Buy: "bg-green-900/40 text-green-400 border-green-800/50",
     Sell: "bg-red-900/40 text-red-400 border-red-800/50",
     Hold: "bg-amber-900/40 text-amber-400 border-amber-800/50",
+    "Strong Buy": "bg-green-900/60 text-green-400 border-green-800/70",
+    "Strong Sell": "bg-red-900/60 text-red-400 border-red-800/70",
   }
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${styles[signal] ?? "bg-gray-800 text-gray-400"}`}>
