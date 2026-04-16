@@ -344,7 +344,7 @@ if (!session && !isGuest) {
       )}
 
       {/* Signal bar */}
-      {data && analysis && !analysis.error && (
+      {data && analysis && (
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-gray-900/60 border border-white/5 rounded-xl text-sm">
           <span className="font-bold text-white text-base">{ticker}</span>
           <span className="text-gray-300 font-medium">${data?.price?.toFixed(2)}</span>
@@ -634,7 +634,7 @@ function SignalPill({ signal }: { signal: string }) {
   const styles: Record<string, string> = {
     Buy: "bg-green-900/40 text-green-400 border-green-800/50",
     Sell: "bg-red-900/40 text-red-400 border-red-800/50",
-    Hold: "bg-amber-900/40 text-amber-400 border-amber-800/50",
+    Neutral: "bg-gray-800/40 text-gray-400 border-gray-700/50",
     "Strong Buy": "bg-green-900/60 text-green-400 border-green-800/70",
     "Strong Sell": "bg-red-900/60 text-red-400 border-red-800/70",
   }
