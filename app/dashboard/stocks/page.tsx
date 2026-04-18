@@ -379,29 +379,40 @@ if (!session && !isGuest) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Price history */}
-        {mounted && backtestData?.portfolio?.length > 0 && (
+        {mounted && backtestData?.portfolio?.length > 0 && chartData && (
           <div className="w-full h-[350px] min-h-[350px]">
   <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Equity Curve</h3>
   
   {/* The parent MUST have a strict pixel height, not percentages */}
   <div className="w-full min-w-0"> 
   <ResponsiveContainer width="100%" height={160}>
-      <LineChart 
-        data={backtestData.portfolio.map((val: number, i: number) => ({
-          name: i,
-          strategy: val,
-          buyHold: backtestData.buy_hold ? backtestData.buy_hold[i] : null
-        }))}
-        
-      >
-        <XAxis dataKey="name" hide />
-        <YAxis domain={["auto", "auto"]} tick={{fontSize: 10, fill: "#4b5563"}} width={45} />
-        <Tooltip contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151" }} />
-        <Line type="monotone" dataKey="strategy" stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
-        <Line type="monotone" dataKey="buyHold" stroke="#4b5563" strokeWidth={1} strokeDasharray="4 4" dot={false} />
-      </LineChart>
-    </ResponsiveContainer>
-  </div>
+  <LineChart 
+    data={chartData} // Use the raw array from your FastAPI endpoint
+  >
+    <XAxis 
+      dataKey="Date" // Use the 'Date' key from your API
+      hide 
+    />
+    <YAxis 
+      domain={["auto", "auto"]} 
+      tick={{fontSize: 10, fill: "#4b5563"}} 
+      width={45} 
+    />
+    <Tooltip 
+      labelStyle={{ color: '#9ca3af' }}
+      contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151" }} 
+    />
+    {/* Change dataKey to "Close" to match your Python dict keys */}
+    <Line 
+      type="monotone" 
+      dataKey="Close" 
+      stroke="#10b981" 
+      strokeWidth={2} 
+      dot={false} 
+      isAnimationActive={false} 
+    />
+  </LineChart>
+</ResponsiveContainer></div>
 </div>
         )}
 
