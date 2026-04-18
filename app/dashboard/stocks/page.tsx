@@ -381,7 +381,7 @@ if (!session && !isGuest) {
         {/* Price history */}
         {mounted && backtestData?.portfolio?.length > 0 && chartData && (
           <div className="w-full h-[350px] min-h-[350px]">
-  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Equity Curve</h3>
+  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Price Chart For {periodMap[period]}</h3>
   
   {/* The parent MUST have a strict pixel height, not percentages */}
   <div className="w-full min-w-0"> 
