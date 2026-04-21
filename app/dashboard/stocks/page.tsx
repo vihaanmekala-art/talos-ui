@@ -435,7 +435,7 @@ export default function Stocks() {
                   {prob !== null && targetPrice && (
                     <div>
                       <p className="text-[10px] uppercase font-semibold text-zinc-500 mb-1 tracking-widest">Probability</p>
-                      <p className="text-2xl font-medium text-green-400">{Number(prob).toFixed(1)}%</p>
+                      <p className="text-2xl font-medium text-green-400">{Number(prob).toFixed(1)}$</p>
                     </div>
                   )}
                 </div>
