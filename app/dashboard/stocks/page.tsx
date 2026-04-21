@@ -391,7 +391,7 @@ export default function Stocks() {
                     <div className="bg-black/30 border border-zinc-800 rounded-xl p-2.5">
                       <p className="text-[10px] uppercase font-semibold tracking-widest text-zinc-500 mb-1">AI bias 30D</p>
                       <p className={`text-xl font-medium ${mlReturn >= 0 ? "text-green-400" : "text-red-400"}`}>
-                        {mlReturn >= 0 ? "↑" : "↓"} {(mlReturn * 100).toFixed(1)}%
+                        {mlReturn >= 0 ? "↑" : "↓"} {(mlReturn * 100).toFixed(1)}$
                       </p>
                     </div>
                     <div className="bg-black/30 border border-zinc-800 rounded-xl p-2.5">
