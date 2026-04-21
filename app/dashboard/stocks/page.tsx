@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, ReferenceArea } from "recharts"
 import { useSession, signIn } from "next-auth/react";
 
@@ -11,6 +11,16 @@ type PriceChartPoint = {
 type PriceChartSelection = {
   startIndex: number
   endIndex: number
+}
+
+type DrawingPoint = {
+  x: number
+  y: number
+}
+
+type ChartStroke = {
+  id: number
+  points: DrawingPoint[]
 }
 
 type ChartInteractionState = {
@@ -100,6 +110,10 @@ export default function Stocks() {
   const [mounted, setMounted] = useState(false)
   const [priceChartSelection, setPriceChartSelection] = useState<PriceChartSelection | null>(null)
   const [isSelectingPriceChart, setIsSelectingPriceChart] = useState(false)
+  const [isPriceChartDrawMode, setIsPriceChartDrawMode] = useState(false)
+  const [priceChartStrokes, setPriceChartStrokes] = useState<ChartStroke[]>([])
+  const [activePriceChartStroke, setActivePriceChartStroke] = useState<ChartStroke | null>(null)
+  const nextPriceChartStrokeId = useRef(0)
 
   const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
@@ -229,9 +243,13 @@ export default function Stocks() {
   useEffect(() => {
     setPriceChartSelection(null)
     setIsSelectingPriceChart(false)
+    setIsPriceChartDrawMode(false)
+    setPriceChartStrokes([])
+    setActivePriceChartStroke(null)
   }, [chartData])
 
   const handlePriceChartStart = (nextState: ChartInteractionState) => {
+    if (isPriceChartDrawMode) return
     const index = getChartIndex(nextState)
     if (index === null) return
     setIsSelectingPriceChart(true)
@@ -239,6 +257,7 @@ export default function Stocks() {
   }
 
   const handlePriceChartMove = (nextState: ChartInteractionState) => {
+    if (isPriceChartDrawMode) return
     if (!isSelectingPriceChart) return
     const index = getChartIndex(nextState)
     if (index === null) return
@@ -250,6 +269,7 @@ export default function Stocks() {
   }
 
   const handlePriceChartEnd = (nextState?: ChartInteractionState) => {
+    if (isPriceChartDrawMode) return
     if (!isSelectingPriceChart) return
     const index = nextState ? getChartIndex(nextState) : null
     if (index !== null) {
@@ -265,6 +285,57 @@ export default function Stocks() {
   const selectedPriceRange = chartData && priceChartSelection
     ? getSelectionMetrics(chartData, priceChartSelection)
     : null
+
+  const getPriceChartPoint = (event: ReactPointerEvent<SVGSVGElement>): DrawingPoint => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    return {
+      x: Math.min(Math.max(event.clientX - bounds.left, 0), bounds.width),
+      y: Math.min(Math.max(event.clientY - bounds.top, 0), bounds.height),
+    }
+  }
+
+  const handlePriceChartDrawStart = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!isPriceChartDrawMode) return
+    event.preventDefault()
+    const point = getPriceChartPoint(event)
+    const stroke = {
+      id: nextPriceChartStrokeId.current++,
+      points: [point],
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setActivePriceChartStroke(stroke)
+  }
+
+  const handlePriceChartDrawMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!isPriceChartDrawMode) return
+    setActivePriceChartStroke(prev => {
+      if (!prev) return prev
+      const point = getPriceChartPoint(event)
+      const lastPoint = prev.points[prev.points.length - 1]
+      if (lastPoint && lastPoint.x === point.x && lastPoint.y === point.y) return prev
+      return {
+        ...prev,
+        points: [...prev.points, point],
+      }
+    })
+  }
+
+  const finishPriceChartStroke = () => {
+    setActivePriceChartStroke(prev => {
+      if (prev && prev.points.length > 0) {
+        setPriceChartStrokes(current => [...current, prev])
+      }
+      return null
+    })
+  }
+
+  const handlePriceChartDrawEnd = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!isPriceChartDrawMode) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    finishPriceChartStroke()
+  }
 
   if (status === "loading") {
     return <div className="flex h-screen items-center justify-center text-white">Loading Talos...</div>
@@ -443,7 +514,7 @@ export default function Stocks() {
                 </div>
               </div>
               {mounted && (
-                <div style={{ height: 140 }}>
+                <div className="relative" style={{ height: 140 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                       data={chartData}
@@ -481,6 +552,70 @@ export default function Stocks() {
                       <Area type="monotone" dataKey="Close" stroke="#4ade80" strokeWidth={2} fill="url(#priceGrad)" dot={false} isAnimationActive={false} />
                     </AreaChart>
                   </ResponsiveContainer>
+                  <svg
+                    className={`absolute inset-0 h-full w-full ${isPriceChartDrawMode ? "pointer-events-auto cursor-crosshair" : "pointer-events-none"}`}
+                    onPointerDown={handlePriceChartDrawStart}
+                    onPointerMove={handlePriceChartDrawMove}
+                    onPointerUp={handlePriceChartDrawEnd}
+                    onPointerLeave={handlePriceChartDrawEnd}
+                  >
+                    {priceChartStrokes.map(stroke => (
+                      <polyline
+                        key={stroke.id}
+                        points={stroke.points.map(point => `${point.x},${point.y}`).join(" ")}
+                        fill="none"
+                        stroke="#facc15"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    ))}
+                    {activePriceChartStroke && (
+                      <polyline
+                        points={activePriceChartStroke.points.map(point => `${point.x},${point.y}`).join(" ")}
+                        fill="none"
+                        stroke="#facc15"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
+                  </svg>
+                  <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
+                    {priceChartStrokes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPriceChartStrokes([])
+                          setActivePriceChartStroke(null)
+                        }}
+                        className="rounded-md bg-black/55 px-2 py-1 text-[10px] font-semibold text-zinc-300 transition hover:bg-black/75 hover:text-white"
+                      >
+                        Clear
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-label={isPriceChartDrawMode ? "Disable drawing on price chart" : "Enable drawing on price chart"}
+                      title={isPriceChartDrawMode ? "Disable drawing" : "Draw on chart"}
+                      onClick={() => {
+                        setIsPriceChartDrawMode(prev => !prev)
+                        setIsSelectingPriceChart(false)
+                        setPriceChartSelection(null)
+                        setActivePriceChartStroke(null)
+                      }}
+                      className={`rounded-full border p-1.5 transition ${
+                        isPriceChartDrawMode
+                          ? "border-amber-400 bg-amber-500/20 text-amber-300"
+                          : "border-zinc-700 bg-black/55 text-zinc-400 hover:border-zinc-500 hover:text-white"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
