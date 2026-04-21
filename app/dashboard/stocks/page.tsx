@@ -1,7 +1,53 @@
 "use client"
-import { useState, useEffect, useRef } from "react"
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useState, useEffect } from "react"
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, ReferenceArea } from "recharts"
+import { useSession, signIn } from "next-auth/react";
+
+type PriceChartPoint = {
+  Date: string
+  Close: number
+}
+
+type PriceChartSelection = {
+  startIndex: number
+  endIndex: number
+}
+
+type ChartInteractionState = {
+  activeTooltipIndex?: number | string | null
+  activeIndex?: number | string | null
+}
+
+function getChartIndex(nextState: ChartInteractionState) {
+  const rawIndex = nextState.activeTooltipIndex ?? nextState.activeIndex
+  if (typeof rawIndex === "number" && Number.isFinite(rawIndex)) return rawIndex
+  if (typeof rawIndex === "string") {
+    const parsedIndex = Number(rawIndex)
+    if (Number.isFinite(parsedIndex)) return parsedIndex
+  }
+  return null
+}
+
+function getSelectionMetrics(points: PriceChartPoint[], selection: PriceChartSelection) {
+  const startPoint = points[selection.startIndex]
+  const endPoint = points[selection.endIndex]
+  const leftBound = points[Math.min(selection.startIndex, selection.endIndex)]
+  const rightBound = points[Math.max(selection.startIndex, selection.endIndex)]
+
+  if (!startPoint || !endPoint || !leftBound || !rightBound || startPoint.Close === 0) return null
+
+  const change = endPoint.Close - startPoint.Close
+  const changePct = (change / startPoint.Close) * 100
+
+  return {
+    startPoint,
+    endPoint,
+    leftBound,
+    rightBound,
+    change,
+    changePct,
+  }
+}
 
 export default function Stocks() {
 
@@ -36,7 +82,7 @@ export default function Stocks() {
 
   const [ticker, setTicker] = useState('')
   const [data, setData] = useState<any>(null)
-  const [chartData, setChartData] = useState<any>(null)
+  const [chartData, setChartData] = useState<PriceChartPoint[] | null>(null)
   const [period, setPeriod] = useState<any>('1y')
   const [load, setLoad] = useState<any>(false)
   const [analysis, setAnalysis] = useState<any>(null)
@@ -52,6 +98,8 @@ export default function Stocks() {
   const { data: session, status } = useSession()
   const [isGuest, setIsGuest] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [priceChartSelection, setPriceChartSelection] = useState<PriceChartSelection | null>(null)
+  const [isSelectingPriceChart, setIsSelectingPriceChart] = useState(false)
 
   const periodMap: Record<string, number> = {
     "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825
@@ -177,6 +225,46 @@ export default function Stocks() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    setPriceChartSelection(null)
+    setIsSelectingPriceChart(false)
+  }, [chartData])
+
+  const handlePriceChartStart = (nextState: ChartInteractionState) => {
+    const index = getChartIndex(nextState)
+    if (index === null) return
+    setIsSelectingPriceChart(true)
+    setPriceChartSelection({ startIndex: index, endIndex: index })
+  }
+
+  const handlePriceChartMove = (nextState: ChartInteractionState) => {
+    if (!isSelectingPriceChart) return
+    const index = getChartIndex(nextState)
+    if (index === null) return
+    setPriceChartSelection(prev => (
+      prev
+        ? { ...prev, endIndex: index }
+        : { startIndex: index, endIndex: index }
+    ))
+  }
+
+  const handlePriceChartEnd = (nextState?: ChartInteractionState) => {
+    if (!isSelectingPriceChart) return
+    const index = nextState ? getChartIndex(nextState) : null
+    if (index !== null) {
+      setPriceChartSelection(prev => (
+        prev
+          ? { ...prev, endIndex: index }
+          : { startIndex: index, endIndex: index }
+      ))
+    }
+    setIsSelectingPriceChart(false)
+  }
+
+  const selectedPriceRange = chartData && priceChartSelection
+    ? getSelectionMetrics(chartData, priceChartSelection)
+    : null
 
   if (status === "loading") {
     return <div className="flex h-screen items-center justify-center text-white">Loading Talos...</div>
@@ -332,16 +420,41 @@ export default function Stocks() {
                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
                   Price · {periodMap[period]} days
                 </span>
-                {analysis?.stock_cagr !== undefined && (
-                  <span className={`text-xs font-medium ${analysis.stock_cagr >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {analysis.stock_cagr >= 0 ? "+" : ""}{analysis.stock_cagr?.toFixed(1)}% CAGR
-                  </span>
-                )}
+                <div className="text-right">
+                  {selectedPriceRange ? (
+                    <>
+                      <p className={`text-xs font-medium ${selectedPriceRange.changePct >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {selectedPriceRange.changePct >= 0 ? "+" : ""}{selectedPriceRange.changePct.toFixed(2)}% return
+                      </p>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">
+                        {selectedPriceRange.startPoint.Date} → {selectedPriceRange.endPoint.Date}
+                      </p>
+                    </>
+                  ) : analysis?.stock_cagr !== undefined ? (
+                    <>
+                      <p className={`text-xs font-medium ${analysis.stock_cagr >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {analysis.stock_cagr >= 0 ? "+" : ""}{analysis.stock_cagr?.toFixed(1)}% CAGR
+                      </p>
+                      <p className="text-[10px] text-zinc-600 mt-0.5">Hold and drag to measure return</p>
+                    </>
+                  ) : (
+                    <p className="text-[10px] text-zinc-600">Hold and drag to measure return</p>
+                  )}
+                </div>
               </div>
               {mounted && (
                 <div style={{ height: 140 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
+                    <AreaChart
+                      data={chartData}
+                      onMouseDown={handlePriceChartStart}
+                      onMouseMove={handlePriceChartMove}
+                      onMouseUp={handlePriceChartEnd}
+                      onMouseLeave={() => handlePriceChartEnd()}
+                      onTouchStart={handlePriceChartStart}
+                      onTouchMove={handlePriceChartMove}
+                      onTouchEnd={handlePriceChartEnd}
+                    >
                       <defs>
                         <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#4ade80" stopOpacity={0.18} />
@@ -351,9 +464,20 @@ export default function Stocks() {
                       <XAxis dataKey="Date" hide />
                       <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10, fill: "#52525b" }} width={45} />
                       <Tooltip
+                        formatter={(value) => [`$${Number(Array.isArray(value) ? value[0] : value ?? 0).toFixed(2)}`, "Close"]}
                         contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 12 }}
                         labelStyle={{ color: "#71717a" }}
                       />
+                      {selectedPriceRange && (
+                        <ReferenceArea
+                          x1={selectedPriceRange.leftBound.Date}
+                          x2={selectedPriceRange.rightBound.Date}
+                          fill={selectedPriceRange.changePct >= 0 ? "#22c55e" : "#ef4444"}
+                          fillOpacity={0.12}
+                          strokeOpacity={0}
+                          ifOverflow="extendDomain"
+                        />
+                      )}
                       <Area type="monotone" dataKey="Close" stroke="#4ade80" strokeWidth={2} fill="url(#priceGrad)" dot={false} isAnimationActive={false} />
                     </AreaChart>
                   </ResponsiveContainer>
