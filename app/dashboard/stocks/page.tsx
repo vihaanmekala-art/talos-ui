@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react"
+import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, ReferenceArea } from "recharts"
 import { useSession, signIn } from "next-auth/react";
 
@@ -27,6 +27,15 @@ type SyncedHoverState =
   | { source: "price"; index: number }
   | { source: "backtest"; index: number }
   | null
+
+type ScenarioValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | ScenarioValue[]
+  | { [key: string]: ScenarioValue }
 
 type ChartInteractionState = {
   activeTooltipIndex?: number | string | null
@@ -70,6 +79,53 @@ function mapHoverIndex(sourceIndex: number, sourceLength: number, targetLength: 
 
   const progress = sourceIndex / (sourceLength - 1)
   return Math.min(targetLength - 1, Math.max(0, Math.round(progress * (targetLength - 1))))
+}
+
+function formatScenarioLabel(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, char => char.toUpperCase())
+}
+
+function renderScenarioValue(value: ScenarioValue): ReactNode {
+  if (value === null || value === undefined || value === "") {
+    return <p className="text-sm text-zinc-500">No scenario details available.</p>
+  }
+
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return <p className="text-sm leading-relaxed text-zinc-200">{String(value)}</p>
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      <div className="space-y-2">
+        {value.map((item, index) => (
+          <div key={index} className="flex gap-2 text-sm text-zinc-200">
+            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />
+            <div className="min-w-0">{renderScenarioValue(item)}</div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const entries = Object.entries(value)
+  if (entries.length === 0) {
+    return <p className="text-sm text-zinc-500">No scenario details available.</p>
+  }
+
+  return (
+    <div className="space-y-2">
+      {entries.map(([key, entryValue]) => (
+        <div key={key} className="rounded-xl border border-white/5 bg-black/20 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
+            {formatScenarioLabel(key)}
+          </p>
+          <div className="mt-1 text-sm text-zinc-200">{renderScenarioValue(entryValue)}</div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function Stocks() {
@@ -532,6 +588,36 @@ export default function Stocks() {
           <StatCard label="S&P 500 CAGR" value={`${analysis.spy_cagr?.toFixed(1)}%`} color="text-zinc-500" />
           <StatCard label="100D SMA" value={`$${analysis.sma100?.toFixed(2)}`} />
           <StatCard label="Sharpe ratio" value={analysis.sharpe?.toFixed(2)} />
+        </div>
+      )}
+
+      {/* Scenario view */}
+      {analysis && !analysis.error && (analysis.bull_case || analysis.bear_case) && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Bull Case</p>
+                <p className="mt-1 text-xs text-emerald-200/80">What drives upside from here</p>
+              </div>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
+                Upside
+              </span>
+            </div>
+            {renderScenarioValue(analysis.bull_case as ScenarioValue)}
+          </div>
+          <div className="rounded-2xl border border-red-900/60 bg-red-950/20 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-red-400">Bear Case</p>
+                <p className="mt-1 text-xs text-red-200/80">What could pressure the stock</p>
+              </div>
+              <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold text-red-300">
+                Downside
+              </span>
+            </div>
+            {renderScenarioValue(analysis.bear_case as ScenarioValue)}
+          </div>
         </div>
       )}
 
