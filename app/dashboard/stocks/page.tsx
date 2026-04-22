@@ -23,6 +23,11 @@ type ChartStroke = {
   points: DrawingPoint[]
 }
 
+type SyncedHoverState =
+  | { source: "price"; index: number }
+  | { source: "backtest"; index: number }
+  | null
+
 type ChartInteractionState = {
   activeTooltipIndex?: number | string | null
   activeIndex?: number | string | null
@@ -57,6 +62,14 @@ function getSelectionMetrics(points: PriceChartPoint[], selection: PriceChartSel
     change,
     changePct,
   }
+}
+
+function mapHoverIndex(sourceIndex: number, sourceLength: number, targetLength: number) {
+  if (sourceLength <= 0 || targetLength <= 0) return undefined
+  if (sourceLength === 1 || targetLength === 1) return 0
+
+  const progress = sourceIndex / (sourceLength - 1)
+  return Math.min(targetLength - 1, Math.max(0, Math.round(progress * (targetLength - 1))))
 }
 
 export default function Stocks() {
@@ -113,6 +126,7 @@ export default function Stocks() {
   const [isPriceChartDrawMode, setIsPriceChartDrawMode] = useState(false)
   const [priceChartStrokes, setPriceChartStrokes] = useState<ChartStroke[]>([])
   const [activePriceChartStroke, setActivePriceChartStroke] = useState<ChartStroke | null>(null)
+  const [syncedHover, setSyncedHover] = useState<SyncedHoverState>(null)
   const nextPriceChartStrokeId = useRef(0)
 
   const periodMap: Record<string, number> = {
@@ -246,6 +260,7 @@ export default function Stocks() {
     setIsPriceChartDrawMode(false)
     setPriceChartStrokes([])
     setActivePriceChartStroke(null)
+    setSyncedHover(null)
   }, [chartData])
 
   const handlePriceChartStart = (nextState: ChartInteractionState) => {
@@ -285,6 +300,20 @@ export default function Stocks() {
   const selectedPriceRange = chartData && priceChartSelection
     ? getSelectionMetrics(chartData, priceChartSelection)
     : null
+  const backtestChartData = backtestData
+    ? backtestData.portfolio.map((val: number, i: number) => ({
+        name: i,
+        strategy: val,
+        buyHold: backtestData.buy_hold?.[i] ?? null,
+      }))
+    : []
+  const shouldSyncPriceAndBacktest = periodMap[period] < periodMap["2y"]
+  const mirroredPriceHoverIndex = shouldSyncPriceAndBacktest && syncedHover?.source === "backtest"
+    ? mapHoverIndex(syncedHover.index, backtestChartData.length, chartData?.length ?? 0)
+    : undefined
+  const mirroredBacktestHoverIndex = shouldSyncPriceAndBacktest && syncedHover?.source === "price"
+    ? mapHoverIndex(syncedHover.index, chartData?.length ?? 0, backtestChartData.length)
+    : undefined
 
   const getPriceChartPoint = (event: ReactPointerEvent<SVGSVGElement>): DrawingPoint => {
     const bounds = event.currentTarget.getBoundingClientRect()
@@ -335,6 +364,32 @@ export default function Stocks() {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
     finishPriceChartStroke()
+  }
+
+  const handlePriceChartHover = (nextState: ChartInteractionState) => {
+    handlePriceChartMove(nextState)
+    if (!shouldSyncPriceAndBacktest || isPriceChartDrawMode) return
+
+    const index = getChartIndex(nextState)
+    if (index === null) return
+    setSyncedHover({ source: "price", index })
+  }
+
+  const clearPriceChartHover = () => {
+    handlePriceChartEnd()
+    setSyncedHover(prev => (prev?.source === "price" ? null : prev))
+  }
+
+  const handleBacktestHover = (nextState: ChartInteractionState) => {
+    if (!shouldSyncPriceAndBacktest) return
+
+    const index = getChartIndex(nextState)
+    if (index === null) return
+    setSyncedHover({ source: "backtest", index })
+  }
+
+  const clearBacktestHover = () => {
+    setSyncedHover(prev => (prev?.source === "backtest" ? null : prev))
   }
 
   if (status === "loading") {
@@ -519,11 +574,11 @@ export default function Stocks() {
                     <AreaChart
                       data={chartData}
                       onMouseDown={handlePriceChartStart}
-                      onMouseMove={handlePriceChartMove}
+                      onMouseMove={handlePriceChartHover}
                       onMouseUp={handlePriceChartEnd}
-                      onMouseLeave={() => handlePriceChartEnd()}
+                      onMouseLeave={clearPriceChartHover}
                       onTouchStart={handlePriceChartStart}
-                      onTouchMove={handlePriceChartMove}
+                      onTouchMove={handlePriceChartHover}
                       onTouchEnd={handlePriceChartEnd}
                     >
                       <defs>
@@ -535,6 +590,7 @@ export default function Stocks() {
                       <XAxis dataKey="Date" hide />
                       <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10, fill: "#52525b" }} width={45} />
                       <Tooltip
+                        defaultIndex={mirroredPriceHoverIndex}
                         formatter={(value) => [`$${Number(Array.isArray(value) ? value[0] : value ?? 0).toFixed(2)}`, "Close"]}
                         contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 12 }}
                         labelStyle={{ color: "#71717a" }}
@@ -742,14 +798,15 @@ export default function Stocks() {
           {mounted && (
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={backtestData.portfolio.map((val: number, i: number) => ({
-                  name: i,
-                  strategy: val,
-                  buyHold: backtestData.buy_hold?.[i] ?? null,
-                }))}>
+                <LineChart
+                  data={backtestChartData}
+                  onMouseMove={handleBacktestHover}
+                  onMouseLeave={clearBacktestHover}
+                >
                   <XAxis hide />
                   <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10, fill: "#52525b" }} width={40} />
                   <Tooltip
+                    defaultIndex={mirroredBacktestHoverIndex}
                     contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8 }}
                     formatter={(v: any) => [`$${Number(v).toFixed(2)}`]}
                   />
