@@ -7,7 +7,11 @@ type PriceChartPoint = {
   Date: string
   Close: number
 }
-
+interface ShieldAlert {
+  ticker: string;
+  price: number;
+  msg: string;
+}
 type PriceChartSelection = {
   startIndex: number
   endIndex: number
@@ -183,6 +187,8 @@ export default function Stocks() {
   const [priceChartStrokes, setPriceChartStrokes] = useState<ChartStroke[]>([])
   const [activePriceChartStroke, setActivePriceChartStroke] = useState<ChartStroke | null>(null)
   const [syncedHover, setSyncedHover] = useState<SyncedHoverState>(null)
+  const [activeAlert, setActiveAlert] = useState<ShieldAlert | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
   const nextPriceChartStrokeId = useRef(0)
 
   const periodMap: Record<string, number> = {
@@ -257,7 +263,23 @@ export default function Stocks() {
     })
     setLoad(false)
   }
+useEffect(() => {
+  const socket = new WebSocket('ws://localhost:8000/ws/shield');
 
+  socket.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  if (data.type === 'SHIELD_ALERT') {
+    // This pops the data into our state
+    setActiveAlert(data);
+
+    // Optional: Clear the alert automatically after 8 seconds
+    setTimeout(() => setActiveAlert(null), 8000);
+  }
+};
+
+  return () => socket.close();
+}, []);
   useEffect(() => {
     if (ticker && data) {
       const chart = async () => {
@@ -469,6 +491,30 @@ export default function Stocks() {
     )
   }
 
+
+const handleSaveTarget = async (userId: string) => {
+  if (!targetPrice || !ticker) return;
+
+  try {
+    const response = await fetch("https://talos-backend-42md.onrender.com/stock/target", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ticker: ticker.toUpperCase(),
+        user_id: userId, // Now it's dynamic!
+        target_price: parseFloat(targetPrice),
+      }),
+    });
+    
+    if (response.ok) {
+      console.log(`🛡️ Shield Armed for ${userId} on ${ticker}`);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    }
+  } catch (err) {
+    console.error("Shield sync error:", err);
+  }
+};
   return (
     <div className="p-4 max-w-6xl mx-auto space-y-4 text-white">
 
@@ -818,28 +864,42 @@ export default function Stocks() {
                     </ResponsiveContainer>
                   </div>
                 )}
-                <div className="mt-3 pt-3 border-t border-zinc-800 flex items-end gap-4">
-                  <div>
-                    <p className="text-[10px] uppercase font-semibold text-zinc-500 mb-1.5 tracking-widest">Target price</p>
-                    <input
-                      disabled={isGuest}
-                      value={targetPrice ?? ""}
-                      onChange={e => {
-                        const val = parseFloat(e.target.value)
-                        setTargetPrice(isNaN(val) ? null : val)
-                        if (!isNaN(val)) saveTarget(val)
-                      }}
-                      className="w-24 px-3 py-1.5 bg-black/30 border border-zinc-800 rounded-lg text-sm outline-none text-white disabled:text-zinc-600 disabled:cursor-not-allowed"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  {prob !== null && targetPrice && (
-                    <div>
-                      <p className="text-[10px] uppercase font-semibold text-zinc-500 mb-1 tracking-widest">Probability</p>
-                      <p className="text-2xl font-medium text-green-400">{Number(prob).toFixed(1)}$</p>
-                    </div>
-                  )}
-                </div>
+                <div style={{ marginTop: '20px' }}>
+  <label style={{ 
+    display: 'block', 
+    color: '#9ca3af', 
+    fontSize: '0.75rem', 
+    fontWeight: 'bold', 
+    marginBottom: '8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em'
+  }}>
+    Get notified when price hits:
+  </label>
+  
+  <input 
+  type="number"
+  placeholder="0.00"
+  value={targetPrice}
+  onChange={(e) => setTargetPrice(e.target.value)}
+  onKeyDown={(e) => {
+  if (e.key === 'Enter') {
+    // Pass the argument here!
+    handleSaveTarget("vihaan_m"); 
+  }
+}}
+  style={{
+    width: '100%',
+    backgroundColor: '#111827', 
+    border: '1px solid #374151',
+    borderRadius: '8px',
+    padding: '12px',
+    color: 'white',
+    fontSize: '1rem',
+    outline: 'none'
+  }}
+/>
+</div>
               </div>
             </div>
           )}
@@ -964,6 +1024,31 @@ export default function Stocks() {
                 </span>
               </a>
             ))}
+            {activeAlert && (
+  <div style={{
+    backgroundColor: '#7f1d1d', // Dark Red
+    color: '#fecaca',           // Light Red Text
+    padding: '15px',
+    borderRadius: '8px',
+    border: '1px solid #dc2626',
+    marginBottom: '20px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    animation: 'pulse 2s infinite' // Makes it feel "live"
+  }}>
+    <div>
+      <strong style={{ fontSize: '1.2rem' }}>🛡️ SHIELD ACTIVATED: {activeAlert.ticker}</strong>
+      <p style={{ margin: 0 }}>Target reached at ${activeAlert.price.toFixed(2)}</p>
+    </div>
+    <button 
+      onClick={() => setActiveAlert(null)}
+      style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '20px' }}
+    >
+      ✕
+    </button>
+  </div>
+)}
           </div>
         </div>
       )}
