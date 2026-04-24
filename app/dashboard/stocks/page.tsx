@@ -341,6 +341,11 @@ export default function Stocks() {
   const [isSavingTarget, setIsSavingTarget] = useState(false)
   const [shieldStatus, setShieldStatus] = useState<"connecting" | "live" | "offline">("connecting")
   const nextPriceChartStrokeId = useRef(0)
+  const [optimizationData, setOptimizationData] = useState(null)
+  // changed: RSI optimizer state and thresholds
+  const [isOptimizing, setIsOptimizing] = useState(false)
+  const [lowThreshold, setLowThreshold] = useState<number | null>(null)
+  const [highThreshold, setHighThreshold] = useState<number | null>(null)
   const alertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -353,7 +358,33 @@ export default function Stocks() {
     : shieldStatus === "connecting"
     ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
     : "border-red-500/30 bg-red-500/10 text-red-300"
+  // changed: optimization handler that calls external optimize endpoint and updates thresholds
+  const handleOptimize = async () => {
+    if (!ticker) return
+    setIsOptimizing(true)
+    try {
+      const response = await fetch('https://talos-backend-42md.onrender.com/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticker: ticker,
+          period: 14,
+        }),
+      })
 
+      if (!response.ok) throw new Error(`Optimize request failed: ${response.status}`)
+      const result = await response.json()
+      setOptimizationData(result)
+      if (typeof result?.best_low === 'number') setLowThreshold(result.best_low)
+      if (typeof result?.best_high === 'number') setHighThreshold(result.best_high)
+      // Optional: log the best sharpe value returned by the optimizer
+      if (result?.max_sharpe) console.log(`Optimized! Best Sharpe: ${result.max_sharpe}`)
+    } catch (error) {
+      console.error('Optimize Error:', error)
+    } finally {
+      setIsOptimizing(false)
+    }
+  }
   // changed: Backtest requests now surface errors and clear stale state when the backend fails.
   async function runBackTest(tickerToTest: string) {
     if (!tickerToTest) return
@@ -1370,6 +1401,19 @@ export default function Stocks() {
             >
               Add Overlay
             </button>
+            <button
+              type="button"
+              onClick={() => void handleOptimize()}
+              disabled={isOptimizing || !ticker}
+              className="h-9 px-3 rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ml-2"
+            >
+              {isOptimizing ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
+              )}
+              <span>{isOptimizing ? "Crunching Data..." : "Optimize RSI"}</span>
+            </button>
             <div className="ml-auto flex gap-2 flex-wrap">
               {overlayTickers.map((ot, idx) => (
                 <div key={ot} className="flex items-center gap-2 rounded-full bg-zinc-900 border border-zinc-800 px-3 py-1 text-xs">
@@ -1380,6 +1424,10 @@ export default function Stocks() {
               ))}
             </div>
           </div>
+          {/* changed: display optimized thresholds when available */}
+          {(lowThreshold !== null || highThreshold !== null) && (
+            <div className="mb-3 text-sm text-zinc-400">Optimized thresholds: Low <span className="font-semibold text-white">{lowThreshold ?? '—'}</span> &nbsp; High <span className="font-semibold text-white">{highThreshold ?? '—'}</span></div>
+          )}
 
           {mounted && (
             <div style={{ height: 200 }}>
