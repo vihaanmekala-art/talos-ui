@@ -1019,13 +1019,7 @@ export default function Stocks() {
         </div>
       </div>
 
-      {/* changed: Loading feedback stays visible while requests are in flight. */}
-      {load && (
-        <div className="flex items-center gap-3 text-blue-400">
-          <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-medium animate-pulse">Crunching market data…</span>
-        </div>
-      )}
+      {/* changed: Global loader removed in favor of per-component skeletons and spinners. */}
 
       {/* changed: Analysis failures now render as a proper inline error instead of only logging to the console. */}
       {analysisError && (
@@ -1079,6 +1073,17 @@ export default function Stocks() {
           <StatCard label="Sharpe ratio" value={formatNumber(analysis.sharpe)} />
         </div>
       )}
+      {/* changed: analysis skeleton when analysis is loading */}
+      {isAnalysisLoading && (
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="rounded-xl bg-zinc-900 border border-zinc-800 p-3 animate-pulse">
+              <div className="h-4 bg-zinc-800 rounded w-3/4 mb-2" />
+              <div className="h-6 bg-zinc-800 rounded w-1/2" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* changed: Scenario cards now stack cleanly on smaller screens. */}
       {analysis && !analysis.error && (analysis.bull_case || analysis.bear_case) && (
@@ -1106,6 +1111,20 @@ export default function Stocks() {
               </span>
             </div>
             {renderScenarioValue(analysis.bear_case as ScenarioValue)}
+          </div>
+        </div>
+      )}
+
+      {/* changed: Scenario skeleton while analysis details load */}
+      {isAnalysisLoading && (
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/20 p-4 animate-pulse">
+            <div className="h-4 bg-zinc-800 rounded w-1/3 mb-3" />
+            <div className="h-10 bg-zinc-800 rounded w-full" />
+          </div>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/20 p-4 animate-pulse">
+            <div className="h-4 bg-zinc-800 rounded w-1/3 mb-3" />
+            <div className="h-10 bg-zinc-800 rounded w-full" />
           </div>
         </div>
       )}
@@ -1499,6 +1518,13 @@ export default function Stocks() {
                   ))}
                 </LineChart>
               </ResponsiveContainer>
+            </div>
+          )}
+          {/* changed: backtest skeleton when primary backtest is loading */}
+          {!mounted && isBacktesting && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mr-3" />
+              <p className="text-sm text-zinc-400">Running backtest…</p>
             </div>
           )}
 
