@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, ReferenceArea } from "recharts"
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, ReferenceArea, Legend } from "recharts"
 import { useSession, signIn } from "next-auth/react";
 
 type PriceChartPoint = {
@@ -316,6 +316,12 @@ export default function Stocks() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
   const [backtestData, setBacktestData] = useState<BacktestResponse | null>(null)
   const [isBacktesting, setIsBacktesting] = useState(false)
+  // changed: overlay states to enable comparing multiple tickers on the backtest chart
+  const [overlayTickerInput, setOverlayTickerInput] = useState("")
+  const [overlayTickers, setOverlayTickers] = useState<string[]>([])
+  const [overlayBacktests, setOverlayBacktests] = useState<Record<string, BacktestResponse | null>>({})
+  const [overlayLoading, setOverlayLoading] = useState<Record<string, boolean>>({})
+  const [overlayErrors, setOverlayErrors] = useState<Record<string, string | null>>({})
   const [sentiment, setSentiment] = useState<SentimentResponse | null>(null)
   const [recents, setRecents] = useState<string[]>([])
   const { data: session, status } = useSession()
@@ -363,6 +369,66 @@ export default function Stocks() {
     } finally {
       setIsBacktesting(false)
     }
+  }
+
+  // changed: helper to fetch and store overlay backtest data for comparison
+  async function fetchOverlayBacktest(tickerToFetch: string) {
+    const t = sanitizeTickerInput(tickerToFetch)
+    if (!t) return
+    setOverlayLoading(prev => ({ ...prev, [t]: true }))
+    setOverlayErrors(prev => ({ ...prev, [t]: null }))
+    try {
+      const json = await fetchJson<BacktestResponse>(`${API_BASE}/stock/${encodeURIComponent(t)}/backtest`)
+      setOverlayBacktests(prev => ({ ...prev, [t]: json }))
+    } catch (error) {
+      console.error("Overlay backtest error:", error)
+      setOverlayBacktests(prev => ({ ...prev, [t]: null }))
+      setOverlayErrors(prev => ({ ...prev, [t]: getErrorMessage(error, "Overlay backtest unavailable right now.") }))
+    } finally {
+      setOverlayLoading(prev => ({ ...prev, [t]: false }))
+    }
+  }
+
+  // changed: add/remove overlay ticker helpers used by the UI
+  const handleAddOverlay = async () => {
+    const t = sanitizeTickerInput(overlayTickerInput)
+    if (!t) return
+    if (overlayTickers.includes(t)) {
+      setOverlayTickerInput("")
+      return
+    }
+    setOverlayTickers(prev => [...prev, t])
+    setOverlayTickerInput("")
+    void fetchOverlayBacktest(t)
+  }
+
+  const handleRemoveOverlay = (t: string) => {
+    setOverlayTickers(prev => prev.filter(x => x !== t))
+    setOverlayBacktests(prev => {
+      const copy = { ...prev }
+      delete copy[t]
+      return copy
+    })
+    setOverlayErrors(prev => {
+      const copy = { ...prev }
+      delete copy[t]
+      return copy
+    })
+    setOverlayLoading(prev => {
+      const copy = { ...prev }
+      delete copy[t]
+      return copy
+    })
+  }
+
+  // changed: color palette for overlay tickers
+  const PALETTE = ["#60a5fa", "#f472b6", "#f97316", "#a78bfa", "#06b6d4", "#f59e0b", "#34d399", "#fb7185"]
+  function getColorForTicker(t: string, idx?: number) {
+    if (!t) return "#999"
+    if (t === ticker) return "#4ade80"
+    const base = Math.abs(Array.from(t).reduce((acc, c) => acc + c.charCodeAt(0), 0))
+    const i = idx ?? (base % PALETTE.length)
+    return PALETTE[i % PALETTE.length]
   }
 
   // changed: Analysis now validates input, uses safer requests, and replaces silent failures with visible error state.
@@ -648,13 +714,38 @@ export default function Stocks() {
   const selectedPriceRange = chartData && priceChartSelection
     ? getSelectionMetrics(chartData, priceChartSelection)
     : null
-  const backtestChartData = Array.isArray(backtestData?.portfolio)
-    ? backtestData.portfolio.map((val: number, i: number) => ({
-        name: i,
-        strategy: val,
-        buyHold: backtestData.buy_hold?.[i] ?? null,
-      }))
-    : []
+  // changed: build a unified backtest dataset that includes the primary ticker plus any overlays
+  const primaryPortfolio = Array.isArray(backtestData?.portfolio) ? backtestData!.portfolio : []
+  const primaryBuyHold = Array.isArray(backtestData?.buy_hold) ? backtestData!.buy_hold : []
+
+  const overlayPortfoliosMap: Record<string, number[]> = {}
+  overlayTickers.forEach(t => {
+    const b = overlayBacktests[t]
+    if (Array.isArray(b?.portfolio)) overlayPortfoliosMap[t] = b!.portfolio as number[]
+  })
+
+  const seriesTickers: string[] = []
+  if (primaryPortfolio.length > 0 && ticker) seriesTickers.push(ticker)
+  overlayTickers.forEach(t => {
+    if (Array.isArray(overlayPortfoliosMap[t])) seriesTickers.push(t)
+  })
+
+  const maxLen = Math.max(0, primaryPortfolio.length, ...Object.values(overlayPortfoliosMap).map(a => a.length))
+
+  const unifiedBacktestChartData = Array.from({ length: maxLen }).map((_, i) => {
+    const item: Record<string, unknown> = { name: i }
+    if (primaryPortfolio.length > 0) {
+      item.strategy = primaryPortfolio[i] ?? null
+      item.buyHold = primaryBuyHold[i] ?? null
+    }
+    overlayTickers.forEach(t => {
+      const arr = overlayPortfoliosMap[t]
+      if (Array.isArray(arr)) item[`strategy_${t}`] = arr[i] ?? null
+    })
+    return item
+  })
+
+  const backtestChartData = unifiedBacktestChartData
   const shouldSyncPriceAndBacktest = PERIOD_MAP[period] < PERIOD_MAP["2y"]
   const mirroredPriceHoverIndex = shouldSyncPriceAndBacktest && syncedHover?.source === "backtest"
     ? mapHoverIndex(syncedHover.index, backtestChartData.length, chartData?.length ?? 0)
@@ -1234,8 +1325,8 @@ export default function Stocks() {
         </div>
       )}
 
-      {/* changed: Backtest content now uses responsive spacing and safer number formatting. */}
-      {backtestData && !isBacktesting && (
+      {/* changed: Backtest content now supports overlays — show when any backtest series exists */}
+      {backtestChartData.length > 0 && !isBacktesting && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -1251,16 +1342,45 @@ export default function Stocks() {
               </div>
               <div className="border-l border-zinc-800 pl-4 text-left sm:text-right">
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Buy &amp; hold</p>
-                <p className="text-2xl font-medium text-zinc-400">{formatPercent(backtestData.buy_hold_return)}</p>
+                <p className="text-2xl font-medium text-zinc-400">{formatPercent(backtestData?.buy_hold_return)}</p>
               </div>
             </div>
           </div>
           <div className="mb-5 grid grid-cols-2 gap-2 lg:grid-cols-4">
-            <StatCard label="Sharpe ratio" value={formatNumber(backtestData.sharpe)} />
-            <StatCard label="Max drawdown" value={formatPercent(backtestData.max_drawdown)} color="text-red-400" />
-            <StatCard label="Buy signals" value={backtestData.buy_signals} />
-            <StatCard label="Sell signals" value={backtestData.sell_signals} />
+            <StatCard label="Sharpe ratio" value={formatNumber(backtestData?.sharpe)} />
+            <StatCard label="Max drawdown" value={formatPercent(backtestData?.max_drawdown)} color="text-red-400" />
+            <StatCard label="Buy signals" value={backtestData?.buy_signals} />
+            <StatCard label="Sell signals" value={backtestData?.sell_signals} />
           </div>
+
+          {/* changed: Overlay controls for adding/removing comparison tickers */}
+          <div className="mb-3 flex items-center gap-2">
+            <input
+              value={overlayTickerInput}
+              onChange={e => setOverlayTickerInput(sanitizeTickerInput(e.target.value))}
+              onKeyDown={e => { if (e.key === "Enter") void handleAddOverlay() }}
+              placeholder="Overlay ticker — e.g. MSFT"
+              className="h-9 px-3 rounded-xl bg-zinc-950 border border-zinc-800 text-sm text-white outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => void handleAddOverlay()}
+              disabled={!sanitizeTickerInput(overlayTickerInput)}
+              className="h-9 px-3 rounded-xl bg-white text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Add Overlay
+            </button>
+            <div className="ml-auto flex gap-2 flex-wrap">
+              {overlayTickers.map((ot, idx) => (
+                <div key={ot} className="flex items-center gap-2 rounded-full bg-zinc-900 border border-zinc-800 px-3 py-1 text-xs">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getColorForTicker(ot, idx) }} />
+                  <span className="font-semibold">{ot}</span>
+                  <button type="button" onClick={() => handleRemoveOverlay(ot)} className="ml-1 text-zinc-500 hover:text-white">×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {mounted && (
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -1276,13 +1396,33 @@ export default function Stocks() {
                     contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8 }}
                     formatter={value => [`$${Number(Array.isArray(value) ? value[0] : value ?? 0).toFixed(2)}`]}
                   />
-                  <Line type="monotone" dataKey="strategy" stroke="#4ade80" strokeWidth={2} dot={false} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="buyHold" stroke="#52525b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
+                  <Legend verticalAlign="top" align="right" />
+                  {/* primary strategy + buyHold (keeps legacy names) */}
+                  {primaryPortfolio.length > 0 && (
+                    <>
+                      <Line type="monotone" dataKey="strategy" name={ticker || "Primary"} stroke={getColorForTicker(ticker)} strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="buyHold" name="Buy & Hold" stroke="#52525b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
+                    </>
+                  )}
+                  {/* overlay strategies */}
+                  {overlayTickers.map((ot, idx) => (
+                    <Line
+                      key={ot}
+                      type="monotone"
+                      dataKey={`strategy_${ot}`}
+                      name={ot}
+                      stroke={getColorForTicker(ot, idx)}
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
           )}
-          <div className="flex gap-4 mt-3">
+
+          <div className="flex gap-4 mt-3 flex-wrap">
             <div className="flex items-center gap-1.5">
               <div className="w-4 h-0.5 bg-green-400 rounded" />
               <span className="text-[10px] text-zinc-500">RSI strategy</span>
@@ -1291,6 +1431,12 @@ export default function Stocks() {
               <div className="w-4 border-t border-dashed border-zinc-500" />
               <span className="text-[10px] text-zinc-500">Buy &amp; hold</span>
             </div>
+            {overlayTickers.map((ot, idx) => (
+              <div key={ot} className="flex items-center gap-1.5">
+                <div className="w-4 h-0.5 rounded" style={{ backgroundColor: getColorForTicker(ot, idx) }} />
+                <span className="text-[10px] text-zinc-500">{ot}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
