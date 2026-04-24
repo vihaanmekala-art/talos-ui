@@ -956,7 +956,23 @@ export default function Stocks() {
             className="flex-1 bg-transparent text-sm text-white placeholder-zinc-600 outline-none font-medium"
             placeholder="Ticker — e.g. AAPL"
             value={ticker}
-            onChange={e => setTicker(sanitizeTickerInput(e.target.value))}
+            onChange={e => {
+              const next = sanitizeTickerInput(e.target.value)
+              // changed: clear previous results immediately when typing a new ticker
+              if (next !== ticker) {
+                setData(null)
+                setAnalysis(null)
+                setChartData(null)
+                setSim(null)
+                setProb(null)
+                setMlReturn(null)
+                setBacktestData(null)
+                setSentiment(null)
+                setAnalysisError(null)
+                setBacktestError(null)
+              }
+              setTicker(next)
+            }}
             onKeyDown={e => {
               if (e.key === "Enter") void Analyze()
             }}
