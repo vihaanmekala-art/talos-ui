@@ -306,6 +306,11 @@ export default function Stocks() {
   const [ticker, setTicker] = useState("")
   const [data, setData] = useState<StockQuote | null>(null)
   const [chartData, setChartData] = useState<PriceChartPoint[] | null>(null)
+  // changed: per-component loading flags to improve perceived speed
+  const [isPriceLoading, setIsPriceLoading] = useState(false)
+  const [isAnalysisLoading, setIsAnalysisLoading] = useState(false)
+  const [isSimLoading, setIsSimLoading] = useState(false)
+  const [isSentimentLoading, setIsSentimentLoading] = useState(false)
   const [period, setPeriod] = useState("1y")
   const [load, setLoad] = useState(false)
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null)
@@ -472,6 +477,10 @@ export default function Stocks() {
 
     setTicker(activeTicker)
     setLoad(true)
+    setIsAnalysisLoading(true)
+    setIsPriceLoading(true)
+    setIsSimLoading(true)
+    setIsSentimentLoading(true)
     setAnalysisError(null)
     setBacktestError(null)
     setTargetSaveError(null)
@@ -519,6 +528,10 @@ export default function Stocks() {
       setAnalysisError(getErrorMessage(error, "Talos couldn't load this ticker right now."))
     } finally {
       setLoad(false)
+      setIsAnalysisLoading(false)
+      setIsPriceLoading(false)
+      setIsSimLoading(false)
+      setIsSentimentLoading(false)
     }
   }
 
@@ -573,6 +586,7 @@ export default function Stocks() {
 
     const chart = async () => {
       try {
+        setIsPriceLoading(true)
         const histJson = await fetchJson<PriceChartPoint[]>(`${API_BASE}/stock/${encodeURIComponent(ticker)}/history?period_days=${PERIOD_MAP[period]}`)
         if (!isCancelled) setChartData(Array.isArray(histJson) ? histJson : [])
       } catch (error) {
@@ -580,6 +594,8 @@ export default function Stocks() {
           setChartData(null)
           setAnalysisError(getErrorMessage(error, "Price history could not be refreshed."))
         }
+      } finally {
+        if (!isCancelled) setIsPriceLoading(false)
       }
     }
 
@@ -595,10 +611,14 @@ export default function Stocks() {
     if (ticker && parsedTargetPrice !== null) {
       const updateSim = async () => {
         try {
+          setIsSimLoading(true)
           const json = await fetchJson<SimulationResponse>(`${API_BASE}/stock/${encodeURIComponent(ticker)}/simulate?target_price=${parsedTargetPrice}`)
           if (typeof json?.probability === "number") setProb(json.probability)
         } catch (error) {
           console.error("Target probability update failed:", error)
+        }
+        finally {
+          setIsSimLoading(false)
         }
       }
       const timeoutId = setTimeout(updateSim, 500)
@@ -1111,7 +1131,7 @@ export default function Stocks() {
                         {selectedPriceRange.startPoint.Date} → {selectedPriceRange.endPoint.Date}
                       </p>
                     </>
-                  ) : stockCagr !== null ? (
+                    ) : stockCagr !== null ? (
                     <>
                       <p className={`text-xs font-medium ${stockCagr >= 0 ? "text-green-400" : "text-red-400"}`}>
                         {stockCagr >= 0 ? "+" : ""}{stockCagr.toFixed(1)}% CAGR
@@ -1119,12 +1139,18 @@ export default function Stocks() {
                       <p className="text-[10px] text-zinc-600 mt-0.5">Hold and drag to measure return</p>
                     </>
                   ) : (
-                    <p className="text-[10px] text-zinc-600">Hold and drag to measure return</p>
+                      <p className="text-[10px] text-zinc-600">Hold and drag to measure return</p>
                   )}
                 </div>
               </div>
-              {mounted && (
+                {mounted && (
                 <div className="relative" style={{ height: 220 }}>
+                    {isPriceLoading && (
+                      <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 rounded-2xl">
+                        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
+                        <p className="text-sm text-zinc-300 ml-3">Loading price history…</p>
+                      </div>
+                    )}
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                       data={chartData}
@@ -1282,6 +1308,12 @@ export default function Stocks() {
                 {/* changed: Simulation rendering now handles empty arrays without leaving a blank card. */}
                 {mounted && Array.isArray(sim) && sim.length > 0 ? (
                   <div style={{ height: 120 }}>
+                    {isSimLoading && (
+                      <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 rounded-2xl">
+                        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
+                        <p className="text-sm text-zinc-300 ml-3">Loading simulation…</p>
+                      </div>
+                    )}
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={sim}>
                         <XAxis dataKey="Date" hide />
@@ -1491,7 +1523,7 @@ export default function Stocks() {
 
       {/* changed: Sentiment now renders a stable shell even when the article list is empty. */}
       {sentiment && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 relative">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-medium flex items-center gap-2">
               <ActivityIcon className="w-4 h-4 text-blue-400" />
@@ -1519,6 +1551,12 @@ export default function Stocks() {
             <div className="absolute left-1/2 top-0 bottom-0 w-px bg-zinc-600" />
           </div>
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {isSentimentLoading && (
+              <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 rounded-2xl">
+                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
+                <p className="text-sm text-zinc-300 ml-3">Loading sentiment…</p>
+              </div>
+            )}
             {hasSentimentArticles ? (
               sentiment.articles?.map((article: SentimentArticle, i: number) => (
                 <a
