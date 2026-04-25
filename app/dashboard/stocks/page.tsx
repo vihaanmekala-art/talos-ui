@@ -324,6 +324,8 @@ export default function Stocks() {
   // changed: black swan event state for stress testing
   const [blackSwanData, setBlackSwanData] = useState<{ ticker: string; stress_label: string; historical_drawdown: number; projected_path: number[]; vaR_percent: number } | null>(null)
   const [isBlackSwanLoading, setIsBlackSwanLoading] = useState(false)
+  // changed: toggle to show/hide black swan overlay on price chart
+  const [showBlackSwanOverlay, setShowBlackSwanOverlay] = useState(false)
   // changed: overlay states to enable comparing multiple tickers on the backtest chart
   const [overlayTickerInput, setOverlayTickerInput] = useState("")
   const [overlayTickers, setOverlayTickers] = useState<string[]>([])
@@ -801,8 +803,7 @@ export default function Stocks() {
     if (Array.isArray(overlayPortfoliosMap[t])) seriesTickers.push(t)
   })
 
-  // changed: include black swan worst-case path in max length calculation
-  const maxLen = Math.max(0, primaryPortfolio.length, ...Object.values(overlayPortfoliosMap).map(a => a.length), blackSwanData?.projected_path?.length ?? 0)
+  const maxLen = Math.max(0, primaryPortfolio.length, ...Object.values(overlayPortfoliosMap).map(a => a.length))
 
   const unifiedBacktestChartData = Array.from({ length: maxLen }).map((_, i) => {
     const item: Record<string, unknown> = { name: i }
@@ -814,10 +815,6 @@ export default function Stocks() {
       const arr = overlayPortfoliosMap[t]
       if (Array.isArray(arr)) item[`strategy_${t}`] = arr[i] ?? null
     })
-    // changed: merge black swan worst-case path into chart data
-    if (Array.isArray(blackSwanData?.projected_path)) {
-      item.blackSwan = blackSwanData.projected_path[i] ?? null
-    }
     return item
   })
 
@@ -1179,9 +1176,25 @@ export default function Stocks() {
           {chartData && (
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
               <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                  Price · {PERIOD_MAP[period]} days
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                    Price · {PERIOD_MAP[period]} days
+                  </span>
+                  {/* changed: button to trigger black swan overlay on price chart */}
+                  {blackSwanData && (
+                    <button
+                      type="button"
+                      onClick={() => setShowBlackSwanOverlay(!showBlackSwanOverlay)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition ${
+                        showBlackSwanOverlay
+                          ? "bg-red-900/60 text-red-300 border border-red-700"
+                          : "bg-red-900/30 text-red-400 border border-red-800/50 hover:bg-red-900/40"
+                      }`}
+                    >
+                      Trigger Black Swan
+                    </button>
+                  )}
+                </div>
                 <div className="text-left sm:text-right">
                   {selectedPriceRange ? (
                     <>
@@ -1248,6 +1261,23 @@ export default function Stocks() {
                         />
                       )}
                       <Area type="monotone" dataKey="Close" stroke="#4ade80" strokeWidth={2} fill="url(#priceGrad)" dot={false} isAnimationActive={false} />
+                      {/* changed: render black swan worst-case path overlay when triggered */}
+                      {showBlackSwanOverlay && blackSwanData?.projected_path && (
+                        <Line
+                          type="monotone"
+                          dataKey="blackSwan"
+                          name="Black Swan Worst-Case"
+                          stroke="#dc2626"
+                          strokeWidth={2.5}
+                          strokeDasharray="8 4"
+                          dot={false}
+                          isAnimationActive={false}
+                          data={chartData?.map((point, idx) => ({
+                            ...point,
+                            blackSwan: blackSwanData.projected_path[idx] ?? null,
+                          })) ?? []}
+                        />
+                      )}
                     </AreaChart>
                   </ResponsiveContainer>
                   <svg
@@ -1522,32 +1552,6 @@ export default function Stocks() {
             <div className="mb-3 text-sm text-zinc-400">Optimized thresholds: Low <span className="font-semibold text-white">{lowThreshold ?? '—'}</span> &nbsp; High <span className="font-semibold text-white">{highThreshold ?? '—'}</span></div>
           )}
 
-          {/* changed: display black swan stress test metrics */}
-          {blackSwanData && (
-            <div className="mb-3 grid gap-2 grid-cols-3">
-              <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-2.5">
-                <p className="text-[10px] uppercase font-semibold tracking-widest text-red-400 mb-1">Stress Test</p>
-                <p className="text-xs font-medium text-red-100 truncate">{blackSwanData.stress_label}</p>
-              </div>
-              <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-2.5">
-                <p className="text-[10px] uppercase font-semibold tracking-widest text-red-400 mb-1">Historical Drawdown</p>
-                <p className="text-xs font-medium text-red-100">{formatPercent(blackSwanData.historical_drawdown)}</p>
-              </div>
-              <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-2.5">
-                <p className="text-[10px] uppercase font-semibold tracking-widest text-red-400 mb-1">VaR Projection</p>
-                <p className="text-xs font-medium text-red-100">{formatPercent(blackSwanData.vaR_percent)}</p>
-              </div>
-            </div>
-          )}
-          {/* changed: skeleton for black swan loading */}
-          {isBlackSwanLoading && (
-            <div className="mb-3 grid gap-2 grid-cols-3 animate-pulse">
-              <div className="rounded-lg bg-zinc-800 h-16" />
-              <div className="rounded-lg bg-zinc-800 h-16" />
-              <div className="rounded-lg bg-zinc-800 h-16" />
-            </div>
-          )}
-
           {mounted && (
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -1584,19 +1588,6 @@ export default function Stocks() {
                       isAnimationActive={false}
                     />
                   ))}
-                  {/* changed: black swan worst-case path overlay */}
-                  {blackSwanData && (
-                    <Line
-                      type="monotone"
-                      dataKey="blackSwan"
-                      name="Black Swan Worst-Case"
-                      stroke="#dc2626"
-                      strokeWidth={2.5}
-                      strokeDasharray="8 4"
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                  )}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -1624,14 +1615,7 @@ export default function Stocks() {
                 <span className="text-[10px] text-zinc-500">{ot}</span>
               </div>
             ))}
-            {/* changed: black swan worst-case path legend */}
-            {blackSwanData && (
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-0.5 border-t border-dashed rounded" style={{ borderColor: "#dc2626" }} />
-                <span className="text-[10px] text-red-500">Black Swan Worst-Case</span>
-              </div>
-            )}
-          </div>
+            </div>
         </div>
       )}
 
