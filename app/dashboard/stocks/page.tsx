@@ -369,8 +369,10 @@ export default function Stocks() {
     setIsOptimizing(true)
     try {
       const response = await fetch('https://talos-backend-42md.onrender.com/optimize', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           ticker: ticker,
           period: 14,
