@@ -321,6 +321,9 @@ export default function Stocks() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
   const [backtestData, setBacktestData] = useState<BacktestResponse | null>(null)
   const [isBacktesting, setIsBacktesting] = useState(false)
+  // changed: black swan event state for stress testing
+  const [blackSwanData, setBlackSwanData] = useState<{ ticker: string; stress_label: string; historical_drawdown: number; projected_path: number[]; vaR_percent: number } | null>(null)
+  const [isBlackSwanLoading, setIsBlackSwanLoading] = useState(false)
   // changed: overlay states to enable comparing multiple tickers on the backtest chart
   const [overlayTickerInput, setOverlayTickerInput] = useState("")
   const [overlayTickers, setOverlayTickers] = useState<string[]>([])
@@ -483,6 +486,7 @@ export default function Stocks() {
     setIsPriceLoading(true)
     setIsSimLoading(true)
     setIsSentimentLoading(true)
+    setIsBlackSwanLoading(true)
     setAnalysisError(null)
     setBacktestError(null)
     setTargetSaveError(null)
@@ -512,6 +516,19 @@ export default function Stocks() {
         setMlReturn(null)
       }
       void runBackTest(activeTicker)
+      // changed: fetch black swan stress test data
+      void (async () => {
+        try {
+          setIsBlackSwanLoading(true)
+          const bsData = await fetchJson<{ ticker: string; stress_label: string; historical_drawdown: number; projected_path: number[]; vaR_percent: number }>(`${API_BASE}/stock/${encodeURIComponent(activeTicker)}/black-swan`)
+          setBlackSwanData(bsData)
+        } catch (error) {
+          console.error("Black swan fetch error:", error)
+          setBlackSwanData(null)
+        } finally {
+          setIsBlackSwanLoading(false)
+        }
+      })()
 
       setRecents(prev => {
         const updated = [activeTicker, ...prev.filter(t => t !== activeTicker)].slice(0, 5)
@@ -534,6 +551,7 @@ export default function Stocks() {
       setIsPriceLoading(false)
       setIsSimLoading(false)
       setIsSentimentLoading(false)
+      setIsBlackSwanLoading(false)
     }
   }
 
@@ -783,7 +801,8 @@ export default function Stocks() {
     if (Array.isArray(overlayPortfoliosMap[t])) seriesTickers.push(t)
   })
 
-  const maxLen = Math.max(0, primaryPortfolio.length, ...Object.values(overlayPortfoliosMap).map(a => a.length))
+  // changed: include black swan worst-case path in max length calculation
+  const maxLen = Math.max(0, primaryPortfolio.length, ...Object.values(overlayPortfoliosMap).map(a => a.length), blackSwanData?.projected_path?.length ?? 0)
 
   const unifiedBacktestChartData = Array.from({ length: maxLen }).map((_, i) => {
     const item: Record<string, unknown> = { name: i }
@@ -795,6 +814,10 @@ export default function Stocks() {
       const arr = overlayPortfoliosMap[t]
       if (Array.isArray(arr)) item[`strategy_${t}`] = arr[i] ?? null
     })
+    // changed: merge black swan worst-case path into chart data
+    if (Array.isArray(blackSwanData?.projected_path)) {
+      item.blackSwan = blackSwanData.projected_path[i] ?? null
+    }
     return item
   })
 
@@ -1053,6 +1076,7 @@ export default function Stocks() {
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-300">Ready to analyze</p>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">Search any ticker to load price, scenarios, sentiment, and backtests.</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">Try a liquid symbol like `AAPL`, `MSFT`, or `NVDA`. The charts, alert tools, and scenario cards will populate once the backend responds.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">Note: The first ticker you search for may take longer to load.</p>
         </div>
       )}
 
@@ -1498,6 +1522,32 @@ export default function Stocks() {
             <div className="mb-3 text-sm text-zinc-400">Optimized thresholds: Low <span className="font-semibold text-white">{lowThreshold ?? '—'}</span> &nbsp; High <span className="font-semibold text-white">{highThreshold ?? '—'}</span></div>
           )}
 
+          {/* changed: display black swan stress test metrics */}
+          {blackSwanData && (
+            <div className="mb-3 grid gap-2 grid-cols-3">
+              <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-2.5">
+                <p className="text-[10px] uppercase font-semibold tracking-widest text-red-400 mb-1">Stress Test</p>
+                <p className="text-xs font-medium text-red-100 truncate">{blackSwanData.stress_label}</p>
+              </div>
+              <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-2.5">
+                <p className="text-[10px] uppercase font-semibold tracking-widest text-red-400 mb-1">Historical Drawdown</p>
+                <p className="text-xs font-medium text-red-100">{formatPercent(blackSwanData.historical_drawdown)}</p>
+              </div>
+              <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-2.5">
+                <p className="text-[10px] uppercase font-semibold tracking-widest text-red-400 mb-1">VaR Projection</p>
+                <p className="text-xs font-medium text-red-100">{formatPercent(blackSwanData.vaR_percent)}</p>
+              </div>
+            </div>
+          )}
+          {/* changed: skeleton for black swan loading */}
+          {isBlackSwanLoading && (
+            <div className="mb-3 grid gap-2 grid-cols-3 animate-pulse">
+              <div className="rounded-lg bg-zinc-800 h-16" />
+              <div className="rounded-lg bg-zinc-800 h-16" />
+              <div className="rounded-lg bg-zinc-800 h-16" />
+            </div>
+          )}
+
           {mounted && (
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -1518,7 +1568,7 @@ export default function Stocks() {
                   {primaryPortfolio.length > 0 && (
                     <>
                       <Line type="monotone" dataKey="strategy" name={ticker || "Primary"} stroke={getColorForTicker(ticker)} strokeWidth={2} dot={false} isAnimationActive={false} />
-                      <Line type="monotone" dataKey="buyHold" name="Buy & Hold" stroke="#52525b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="buyHold" name="Buy & Hold" stroke="#2b2b31" strokeWidth={1.5} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
                     </>
                   )}
                   {/* overlay strategies */}
@@ -1534,6 +1584,19 @@ export default function Stocks() {
                       isAnimationActive={false}
                     />
                   ))}
+                  {/* changed: black swan worst-case path overlay */}
+                  {blackSwanData && (
+                    <Line
+                      type="monotone"
+                      dataKey="blackSwan"
+                      name="Black Swan Worst-Case"
+                      stroke="#dc2626"
+                      strokeWidth={2.5}
+                      strokeDasharray="8 4"
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -1561,6 +1624,13 @@ export default function Stocks() {
                 <span className="text-[10px] text-zinc-500">{ot}</span>
               </div>
             ))}
+            {/* changed: black swan worst-case path legend */}
+            {blackSwanData && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-0.5 border-t border-dashed rounded" style={{ borderColor: "#dc2626" }} />
+                <span className="text-[10px] text-red-500">Black Swan Worst-Case</span>
+              </div>
+            )}
           </div>
         </div>
       )}
