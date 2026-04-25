@@ -1180,18 +1180,21 @@ export default function Stocks() {
                   <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
                     Price · {PERIOD_MAP[period]} days
                   </span>
-                  {/* changed: button to trigger black swan overlay on price chart */}
-                  {blackSwanData && (
+                  {/* changed: button to trigger black swan overlay on price chart - show when ticker is loaded */}
+                  {ticker && (
                     <button
                       type="button"
                       onClick={() => setShowBlackSwanOverlay(!showBlackSwanOverlay)}
+                      disabled={!blackSwanData}
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition ${
                         showBlackSwanOverlay
                           ? "bg-red-900/60 text-red-300 border border-red-700"
-                          : "bg-red-900/30 text-red-400 border border-red-800/50 hover:bg-red-900/40"
+                          : blackSwanData
+                          ? "bg-red-900/30 text-red-400 border border-red-800/50 hover:bg-red-900/40"
+                          : "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed"
                       }`}
                     >
-                      Trigger Black Swan
+                      {isBlackSwanLoading ? "Loading..." : "Trigger Black Swan"}
                     </button>
                   )}
                 </div>
