@@ -77,6 +77,8 @@ function renderScenarioValue(value: ScenarioValue): ReactNode {
     </div>
   )
 }
+
+  
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
 }
@@ -224,6 +226,7 @@ export default function Stocks() {
     : shieldStatus === "connecting"
     ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
     : "border-red-500/30 bg-red-500/10 text-red-300"
+
 
   function getColorForTicker(t: string, idx?: number) {
     if (!t) return "#999"
@@ -504,7 +507,7 @@ export default function Stocks() {
     overlayTickers.forEach(t => { const arr = overlayPortfoliosMap[t]; if (Array.isArray(arr)) item[`strategy_${t}`] = arr[i] ?? null })
     return item
   })
-  const shouldSyncPriceAndBacktest = PERIOD_MAP[period] < PERIOD_MAP["2y"]
+  const shouldSyncPriceAndBacktest = PERIOD_MAP[period] <= PERIOD_MAP["2y"]
   const mirroredPriceHoverIndex    = shouldSyncPriceAndBacktest && syncedHover?.source === "backtest" ? mapHoverIndex(syncedHover.index, backtestChartData.length, chartData?.length ?? 0) : undefined
   const mirroredBacktestHoverIndex = shouldSyncPriceAndBacktest && syncedHover?.source === "price"    ? mapHoverIndex(syncedHover.index, chartData?.length ?? 0, backtestChartData.length)  : undefined
   const hasSentimentArticles = Array.isArray(sentiment?.articles) && sentiment.articles.length > 0

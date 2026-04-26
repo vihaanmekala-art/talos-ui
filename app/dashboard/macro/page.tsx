@@ -7,7 +7,7 @@ export default function Macro() {
   useEffect(() => {
     async function Load() {
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const res = await fetch(`${API_BASE}/macro`)
+        const res = await fetch(`${API_BASE}/macro/dashboard`)
       const json = await res.json()
       setData(json) 
       setSpinner(false)
