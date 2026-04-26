@@ -10,7 +10,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Link href="/dashboard/stocks">📈 Stock Analysis</Link>
         <Link href="/dashboard/portfolio">⚖️ Portfolio Optimizer</Link>
         <Link href="/dashboard/macro">🌐 Macroeconomic Data</Link>
-        <Link href="/dashboard/options">📊 Options Chain</Link>
       </aside>
       <main className="flex-1 p-8 pt-4">{children}</main>
     </div>
