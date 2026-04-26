@@ -33,7 +33,7 @@ export default function Macro() {
           <MacroCard label="Fed Funds Rate" value={`${data.fed_funds}%`} />
           <MacroCard label="Unemployment" value={`${data.unemployment}%`} />
           <MacroCard label="10Y Treasury Yield" value={`${data.treasury_yield}%`} />
-          <MacroCard label="S&P 500" value={`$${data.sp500}`} />
+
         </div>
       )}
     </div>
