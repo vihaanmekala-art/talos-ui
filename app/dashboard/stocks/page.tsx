@@ -764,9 +764,6 @@ export default function Stocks() {
               />
               <StatCard label="S&P CAGR" value={formatPercent(analysis.spy_cagr)} color="text-zinc-500" />
               <StatCard label="Sharpe" value={formatNumber(analysis.sharpe)} />
-              <div className="col-span-4 lg:col-span-8">
-                <TradeJournal ticker={ticker} />
-              </div>
             </div>
           )}
           {ticker && data && analysis && <TradeJournal ticker={ticker} />}
