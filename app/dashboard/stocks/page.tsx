@@ -752,22 +752,24 @@ export default function Stocks() {
           {/* ── Stat cards ──────────────────────────────────────────────── */}
           {data && analysis && !analysis.error && (
             <div className="grid grid-cols-4 gap-2 lg:grid-cols-8">
-              <StatCard label="52W High" value={formatCurrency(data.max_high)} />
-              <StatCard label="52W Low" value={formatCurrency(data.max_low)} />
-              <StatCard label="50D SMA" value={formatCurrency(analysis.sma50)} />
-              <StatCard label="100D SMA" value={formatCurrency(analysis.sma100)} />
-              <StatCard label="Volatility" value={formatPercent(analysis.vola)} />
-              <StatCard
-                label="Stock CAGR"
-                value={formatPercent(stockCagr)}
-                color={stockCagr !== null && stockCagr > 0 ? "text-green-400" : "text-red-400"}
-              />
-              <StatCard label="S&P CAGR" value={formatPercent(analysis.spy_cagr)} color="text-zinc-500" />
-              <StatCard label="Sharpe" value={formatNumber(analysis.sharpe)} />
-              <TradeJournal ticker={ticker} />
-            </div>
+  <StatCard label="52W High" value={formatCurrency(data.max_high)} />
+  <StatCard label="52W Low" value={formatCurrency(data.max_low)} />
+  <StatCard label="50D SMA" value={formatCurrency(analysis.sma50)} />
+  <StatCard label="100D SMA" value={formatCurrency(analysis.sma100)} />
+  <StatCard label="Volatility" value={formatPercent(analysis.vola)} />
+  <StatCard
+    label="Stock CAGR"
+    value={formatPercent(stockCagr)}
+    color={stockCagr !== null && stockCagr > 0 ? "text-green-400" : "text-red-400"}
+  />
+  <StatCard label="S&P CAGR" value={formatPercent(analysis.spy_cagr)} color="text-zinc-500" />
+  <StatCard label="Sharpe" value={formatNumber(analysis.sharpe)} />
+  <div className="col-span-4 lg:col-span-8">
+    <TradeJournal ticker={ticker} />
+  </div>
+</div>
           )}
-
+              <TradeJournal ticker={ticker} />
           {/* ── Chart + Projection ──────────────────────────────────────── */}
           {(chartData || sim) && (
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.45fr_1fr]">
