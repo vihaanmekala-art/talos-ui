@@ -721,7 +721,8 @@ export default function Stocks() {
               <p className="mt-2 max-w-lg text-sm text-zinc-500 leading-relaxed">
                 Try <code className="font-mono text-zinc-400 text-xs">AAPL</code>,{" "}
                 <code className="font-mono text-zinc-400 text-xs">MSFT</code>, or{" "}
-                <code className="font-mono text-zinc-400 text-xs">NVDA</code>.
+                <code className="font-mono text-zinc-400 text-xs">NVDA</code>,
+                or more!
               </p>
             </div>
           )}
