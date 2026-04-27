@@ -18,7 +18,7 @@ import {
   ReferenceArea,
 } from "recharts"
 import { useSession, signIn } from "next-auth/react"
-
+import TradeJournal from "@/components/TradeJournal"
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PriceChartPoint = { Date: string; Close: number }
@@ -764,6 +764,7 @@ export default function Stocks() {
               />
               <StatCard label="S&P CAGR" value={formatPercent(analysis.spy_cagr)} color="text-zinc-500" />
               <StatCard label="Sharpe" value={formatNumber(analysis.sharpe)} />
+              <TradeJournal ticker={ticker} />
             </div>
           )}
 
