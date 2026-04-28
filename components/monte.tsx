@@ -10,7 +10,12 @@ interface ChartDataPoint {
 interface MonteCarloChartProps {
   paths: number[][]; // This matches your backend output exactly
 }
-
+interface TooltipPayload {
+  value: number;
+  payload: ChartDataPoint;
+  dataKey: string;
+  color: string;
+}
 const MonteCarloChart: React.FC<MonteCarloChartProps> = ({ paths }) => {
   // 1. Safety Check: Ensure paths is a valid 2D array
   if (!paths || !Array.isArray(paths) || paths.length === 0) {
@@ -29,6 +34,18 @@ const MonteCarloChart: React.FC<MonteCarloChartProps> = ({ paths }) => {
     
     return point;
   });
+  const CustomTooltip = ({active, payload}: any) => {
+    if (active && payload && payload.length) {
+      const values = payload.map((p: TooltipPayload) => p.value);
+      const avg = values.reduce((sum: number, val: number) => sum + val, 0) / values.length;
+      return (
+      <div style={{ backgroundColor: '#000', padding: '10px', border: '1px solid #222' }}>
+        <p style={{ color: '#fff', fontSize: '10px' }}>Avg: {avg.toFixed(2)}</p>
+        <p style={{ color: '#3b82f6', fontSize: '10px' }}>Total Sims: {payload.length}</p>
+      </div>
+    );}
+    return null;
+  };
 
   return (
     <div className="w-full h-full bg-[#050505] p-4 rounded-xl border border-white/5 shadow-2xl">
@@ -45,11 +62,7 @@ const MonteCarloChart: React.FC<MonteCarloChartProps> = ({ paths }) => {
           <XAxis dataKey="day" hide />
           <YAxis domain={['auto', 'auto']} hide />
           
-          <Tooltip 
-            contentStyle={{ backgroundColor: '#000', border: '1px solid #222', fontSize: '10px', fontFamily: 'monospace' }}
-            itemStyle={{ color: '#3b82f6' }}
-            cursor={{ stroke: '#333', strokeWidth: 1 }}
-          />
+           <Tooltip content={<CustomTooltip />} />
 
           {/* THE FAN: Render the 50 faint "probability" paths */}
           {paths.slice(0, 50).map((_, i) => (
