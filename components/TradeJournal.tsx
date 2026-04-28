@@ -32,7 +32,7 @@ export default function TradeJournal({ ticker }: { ticker: string }) {
           <p className="mt-0.5 font-mono text-xs text-zinc-400">{ticker}</p>
         </div>
         <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 font-mono text-[9px] font-bold tracking-[0.1em] text-blue-400">
-          LLAMA-3.3-70B
+          QWEN3-32B BY GROQ
         </span>
       </div>
 

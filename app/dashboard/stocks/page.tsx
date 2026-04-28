@@ -19,6 +19,7 @@ import {
 } from "recharts"
 import { useSession, signIn } from "next-auth/react"
 import TradeJournal from "@/components/TradeJournal"
+import MonteCarloChart from "@/components/monte"
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PriceChartPoint = { Date: string; Close: number }
@@ -49,7 +50,16 @@ type ChartStroke = { id: number; points: DrawingPoint[] }
 type SyncedHoverState = { source: "price"; index: number } | { source: "backtest"; index: number } | null
 type ScenarioValue = string | number | boolean | null | undefined | ScenarioValue[] | { [key: string]: ScenarioValue }
 type ChartInteractionState = { activeTooltipIndex?: number | string | null; activeIndex?: number | string | null }
+interface ChartDataPoint {
+  day: number;
+  [key: string]: number; // This allows path0, path1, path2, etc.
+}
 
+// 2. Update the component props
+interface MonteCarloProps {
+  // If your backend returns run_monte_carlo()["paths"], it's a number[][]
+  paths: number[][]; 
+}
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PERIOD_MAP: Record<string, number> = {
@@ -249,6 +259,8 @@ export default function Stocks() {
   const nextStrokeId = useRef(0)
   const alertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [simData, setSimData] = useState<number[][] | null>(null);
+  
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
   const parsedTargetPrice = parseTargetPrice(targetPrice)
@@ -360,7 +372,28 @@ export default function Stocks() {
       socket.close()
     }
   }, [API_BASE])
+useEffect(() => {
+    const fetchSimulation = async () => {
+      if (!ticker) return;
+      
+      setLoad(true);
+      try {
+        const response = await fetch(`${API_BASE}/randomize?ticker=${ticker}`);
+        const data = await response.json();
+        
+        if (data.paths) {
+          setSimData(data.paths);
+        }
+      } catch (error) {
+        console.error("Monte Carlo Fetch Error:", error);
+      } finally {
+        setLoad(false);
+      }
+    };
 
+    fetchSimulation();
+  }, [ticker]); // <--- This 'dependency array' is the key to independence  
+  
   // Period → refresh chart
   useEffect(() => {
     if (!ticker || !data) return
@@ -954,27 +987,15 @@ export default function Stocks() {
                     )}
 
                     {/* Simulation chart */}
-                    {mounted && Array.isArray(sim) && sim.length > 0 ? (
-                      <div style={{ height: 110 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={sim}>
-                            <XAxis dataKey="Date" hide />
-                            <YAxis domain={["auto", "auto"]} orientation="right" tick={{ fontSize: 9, fill: "#52525b", fontFamily: "IBM Plex Mono" }} width={44} />
-                            <Tooltip
-                              formatter={v => [`$${Number(Array.isArray(v) ? v[0] : v ?? 0).toFixed(2)}`, "Price"]}
-                              contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 11 }}
-                            />
-                            <Area type="monotone" dataKey="p95" stroke="#1d4ed8" fill="#1d4ed8" fillOpacity={0.04} strokeWidth={1} strokeDasharray="4 3" dot={false} />
-                            <Area type="monotone" dataKey="p50" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.12} strokeWidth={2} dot={false} />
-                            <Area type="monotone" dataKey="p5" stroke="#1d4ed8" fill="transparent" strokeWidth={1} strokeDasharray="4 3" dot={false} />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-zinc-800 p-4 text-xs font-mono text-zinc-600">
-                        Simulation data unavailable for this ticker.
-                      </div>
-                    )}
+                    <div className="relative">
+                      {load && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-xl">
+                          <div className="animate-pulse text-blue-500 font-mono text-[10px]">RECALCULATING RISK...</div>
+                        </div>
+                      )}
+                      
+                      <MonteCarloChart paths={simData || []} />
+                    </div>
 
                     {/* Shield alert input */}
                     <div className="mt-4 pt-4 border-t border-zinc-800">
