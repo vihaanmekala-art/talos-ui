@@ -373,26 +373,39 @@ export default function Stocks() {
     }
   }, [API_BASE])
 useEffect(() => {
-    const fetchSimulation = async () => {
-      if (!ticker) return;
-      
-      setLoad(true);
-      try {
-        const response = await fetch(`${API_BASE}/randomize?ticker=${ticker}`);
-        const data = await response.json();
-        
-        if (data.paths) {
-          setSimData(data.paths);
-        }
-      } catch (error) {
-        console.error("Monte Carlo Fetch Error:", error);
-      } finally {
-        setLoad(false);
-      }
-    };
+  // 1. Validation: Prevent firing for empty or single-character strings
+  if (!ticker || ticker.length < 2) {
+    setSimData(null);
+    return;
+  }
 
-    fetchSimulation();
-  }, [ticker]); // <--- This 'dependency array' is the key to independence  
+  // 2. Race condition flag
+  let isCancelled = false;
+
+  // 3. Debounce timer
+  const handler = setTimeout(async () => {
+    setLoad(true);
+    try {
+      const response = await fetch(`${API_BASE}/randomize?ticker=${ticker}`);
+      const data = await response.json();
+      
+      // 4. Only update state if this is still the "latest" request
+      if (!isCancelled && data.paths) {
+        setSimData(data.paths);
+      }
+    } catch (error) {
+      if (!isCancelled) console.error("Monte Carlo Fetch Error:", error);
+    } finally {
+      if (!isCancelled) setLoad(false);
+    }
+  }, 500); // Wait 500ms after the last keystroke
+
+  // 5. Cleanup function: Stops the timer AND invalidates the previous fetch
+  return () => {
+    isCancelled = true;
+    clearTimeout(handler);
+  };
+}, [ticker]);
   
   // Period → refresh chart
   useEffect(() => {
@@ -763,7 +776,7 @@ useEffect(() => {
           {/* ── Signal bar ──────────────────────────────────────────────── */}
           {data && analysis && !analysis.error && (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-              <span className="font-mono text-xs font-bold tracking-widest text-zinc-500">{ticker}</span>
+              <span className="font-mono text-xs font-bold tracking-widest text-zinc-500">{ticker} (IEX)</span>
               <span className="font-mono text-2xl font-semibold text-zinc-50">{formatCurrency(data.price)}</span>
               {priceChange !== null && (
                 <span className={`font-mono text-xs font-medium ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`}>
