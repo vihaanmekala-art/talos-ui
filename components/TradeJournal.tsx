@@ -28,7 +28,7 @@ export default function TradeJournal({ ticker }: { ticker: string }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-600">AI Trade Auditor</p>
+          <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-600">AI Trade Auditor (Type Help For Help)</p>
           <p className="mt-0.5 font-mono text-xs text-zinc-400">{ticker}</p>
         </div>
         <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 font-mono text-[9px] font-bold tracking-[0.1em] text-blue-400">
