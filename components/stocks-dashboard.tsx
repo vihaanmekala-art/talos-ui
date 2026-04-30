@@ -505,7 +505,18 @@ export function OverviewSection({
     setBoardroomError(null)
     setBoardroomData(null)
     try {
-      const data = await fetchJson<BoardroomResponse>(`${apiBase}/boardroom/${encodeURIComponent(ticker)}`)
+      const data = await fetchJson<BoardroomResponse>(
+  `${apiBase}/boardroom/${encodeURIComponent(ticker)}`,
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    // If your FastAPI endpoint doesn't require a body, 
+    // you can leave this out or send an empty object.
+    body: JSON.stringify({}), 
+  }
+);
       setBoardroomData(data)
     } catch (err) {
       setBoardroomError(getErrorMessage(err, "Failed to fetch boardroom"))

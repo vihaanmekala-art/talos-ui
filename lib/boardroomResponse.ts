@@ -1,9 +1,14 @@
 import { BoardroomResponse } from "../types/boardroom";
 
-export function formatBoardroomResponse(sessionId: string, verdict: unknown): BoardroomResponse {
+export function formatBoardroomResponse(
+  sessionId: any, 
+  verdict: unknown, 
+  status: string = "Success" // Added status parameter with a default
+): BoardroomResponse {
   return {
-    session_id: sessionId,
-    verdict,
+    status,
+    session_id: Number(sessionId), 
+    verdict: verdict as string,
   };
 }
 
