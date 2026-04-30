@@ -9,6 +9,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react"
+import type { BoardroomResponse } from "../types/boardroom"
 import useSWR, { useSWRConfig } from "swr"
 import { signIn } from "next-auth/react"
 import type { Session } from "next-auth"
@@ -495,6 +496,23 @@ export function OverviewSection({
   const quote = useStockQuote(apiBase, ticker, requestKey)
   const analysis = useAnalysis(apiBase, ticker, requestKey)
   const randomize = useRandomize(apiBase, ticker, requestKey)
+  const [boardroomLoading, setBoardroomLoading] = useState(false)
+  const [boardroomError, setBoardroomError] = useState<string | null>(null)
+  const [boardroomData, setBoardroomData] = useState<BoardroomResponse | null>(null)
+  async function handleFetchBoardroom() {
+    if (!ticker) return
+    setBoardroomLoading(true)
+    setBoardroomError(null)
+    setBoardroomData(null)
+    try {
+      const data = await fetchJson<BoardroomResponse>(`${apiBase}/boardroom/${encodeURIComponent(ticker)}`)
+      setBoardroomData(data)
+    } catch (err) {
+      setBoardroomError(getErrorMessage(err, "Failed to fetch boardroom"))
+    } finally {
+      setBoardroomLoading(false)
+    }
+  }
   
   if (!ticker) return null
 
@@ -563,6 +581,17 @@ export function OverviewSection({
         ) : randomize.data?.regime ? (
           <RegimeBadge regime={randomize.data.regime} />
         ) : null}
+        <div className="ml-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleFetchBoardroom()}
+            className={`ml-2 h-7 px-2 rounded-lg font-mono text-[10px] font-semibold transition ${boardroomLoading ? "bg-zinc-800 text-zinc-400 cursor-wait" : "bg-indigo-700/10 text-indigo-300 hover:bg-indigo-700/20"}`}
+          >
+            {boardroomLoading ? "Fetching..." : "Boardroom"}
+          </button>
+          {boardroomError && <p className="text-xs text-red-400">{boardroomError}</p>}
+        </div>
+
         <div className="ml-auto flex flex-wrap gap-5">
           {metrics.map(([label, value]) => (
             <div key={label} className="flex flex-col items-end gap-0.5">
@@ -593,6 +622,14 @@ export function OverviewSection({
         />
         <StatCard label="Sharpe" value={formatNumber(analysisData.sharpe)} />
       </div>
+
+      {boardroomData && (
+        <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+          <p className="font-mono text-[9px] text-zinc-600">Boardroom</p>
+          <p className="mt-1 text-xs text-zinc-200">Session: {boardroomData.session_id}</p>
+          <pre className="mt-2 max-h-48 overflow-auto text-xs text-zinc-300">{JSON.stringify(boardroomData.verdict, null, 2)}</pre>
+        </div>
+      )}
 
       <TradeJournal ticker={ticker} />
     </>
