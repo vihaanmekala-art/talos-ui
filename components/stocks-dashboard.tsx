@@ -34,7 +34,20 @@ type PriceChartPoint = {
   Date: string
   Close: number 
 }
+interface RegimeData {
+  current_state: number;
+  label: "BEAR" | "BULL";
+  is_crisis: boolean;
+  stay_probability: number;
+}
 
+interface MonteCarloResponse {
+  bull_case: number;
+  base_case: number;
+  bear_case: number;
+  paths: number[][];
+  regime: RegimeData; // Add this!
+}
 type StockQuote = {
   name?: string
   price?: number
@@ -42,6 +55,11 @@ type StockQuote = {
   change_pct?: number
   max_high?: number
   max_low?: number
+  bull_case: number;
+  base_case: number;
+  bear_case: number;
+  paths: number[][];
+  regime: RegimeData;
 }
 
 type ScenarioValue =
@@ -275,7 +293,6 @@ function renderScenarioValue(value: ScenarioValue): ReactNode {
   if (!entries.length) {
     return <p className="text-xs text-zinc-600">No details.</p>
   }
-  
   return (
     <div className="space-y-1.5">
       {entries.map(([key, entryValue]) => (
@@ -291,6 +308,32 @@ function renderScenarioValue(value: ScenarioValue): ReactNode {
     </div>
   )
 }
+
+const RegimeBadge = ({ regime }: { regime: RegimeData }) => (
+  <div
+    className={`flex items-center gap-2 px-3 py-1 rounded-md border transition-all duration-500 ${
+      regime.is_crisis
+        ? "bg-red-500/10 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+        : "bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+    }`}
+  >
+    <span className="relative flex h-2 w-2">
+      <span
+        className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+          regime.is_crisis ? "bg-red-400" : "bg-emerald-400"
+        }`}
+      />
+      <span
+        className={`relative inline-flex rounded-full h-2 w-2 ${
+          regime.is_crisis ? "bg-red-500" : "bg-emerald-500"
+        }`}
+      />
+    </span>
+    <span className="text-xs font-mono font-bold uppercase tracking-wider">
+      {regime.label} REGIME
+    </span>
+  </div>
+)
 
 // ============================================================================
 // Components
@@ -469,7 +512,6 @@ export function OverviewSection({
   if (!data || !analysisData || analysisData.error || quote.error || analysis.error) {
     return null
   }
-
   const priceChange = typeof data.change === "number" ? data.change : null
   const stockCagr = typeof analysisData.stock_cagr === "number" ? analysisData.stock_cagr : null
 
@@ -495,6 +537,7 @@ export function OverviewSection({
           </span>
         )}
         <SignalPill signal={analysisData.rsi_signal ?? "Neutral"} />
+        <RegimeBadge regime={data.regime} />
         <div className="ml-auto flex flex-wrap gap-5">
           {metrics.map(([label, value]) => (
             <div key={label} className="flex flex-col items-end gap-0.5">
