@@ -537,8 +537,13 @@ export function OverviewSection({
           </span>
         )}
         <SignalPill signal={analysisData.rsi_signal ?? "Neutral"} />
-        <RegimeBadge regime={data.regime} />
-        <div className="ml-auto flex flex-wrap gap-5">
+        {/* Only render if data and data.regime are present */}
+            {data && data.regime ? (
+              <RegimeBadge regime={data.regime} />
+            ) : (
+              <div className="animate-pulse bg-slate-800 h-6 w-24 rounded border border-slate-700" /> // Optional Skeleton Loader
+            )}
+            <div className="ml-auto flex flex-wrap gap-5">
           {metrics.map(([label, value]) => (
             <div key={label} className="flex flex-col items-end gap-0.5">
               <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-zinc-600">
