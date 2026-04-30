@@ -41,13 +41,6 @@ interface RegimeData {
   stay_probability: number;
 }
 
-interface MonteCarloResponse {
-  bull_case: number;
-  base_case: number;
-  bear_case: number;
-  paths: number[][];
-  regime: RegimeData; // Add this!
-}
 type StockQuote = {
   name?: string
   price?: number
@@ -59,7 +52,7 @@ type StockQuote = {
   base_case: number;
   bear_case: number;
   paths: number[][];
-  regime: RegimeData;
+  regime?: RegimeData;
 }
 
 type ScenarioValue =
@@ -99,8 +92,12 @@ type SimulationResponse = {
   ml_expected_price?: number 
 }
 
-type MonteRandomizeResponse = { 
-  paths?: number[][] 
+type MonteRandomizeResponse = {
+  bull_case?: number
+  base_case?: number
+  bear_case?: number
+  paths?: number[][]
+  regime?: RegimeData
 }
 
 type BacktestResponse = {
@@ -311,27 +308,42 @@ function renderScenarioValue(value: ScenarioValue): ReactNode {
 
 const RegimeBadge = ({ regime }: { regime: RegimeData }) => (
   <div
-    className={`flex items-center gap-2 px-3 py-1 rounded-md border transition-all duration-500 ${
+    className={`flex items-center gap-3 rounded-md border px-3 py-1.5 transition-all duration-500 ${
       regime.is_crisis
         ? "bg-red-500/10 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
         : "bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
     }`}
   >
-    <span className="relative flex h-2 w-2">
-      <span
-        className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-          regime.is_crisis ? "bg-red-400" : "bg-emerald-400"
-        }`}
-      />
-      <span
-        className={`relative inline-flex rounded-full h-2 w-2 ${
-          regime.is_crisis ? "bg-red-500" : "bg-emerald-500"
-        }`}
-      />
-    </span>
-    <span className="text-xs font-mono font-bold uppercase tracking-wider">
-      {regime.label} REGIME
-    </span>
+    <div className="flex items-center gap-2">
+      <span className="relative flex h-2 w-2">
+        <span
+          className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+            regime.is_crisis ? "bg-red-400" : "bg-emerald-400"
+          }`}
+        />
+        <span
+          className={`relative inline-flex h-2 w-2 rounded-full ${
+            regime.is_crisis ? "bg-red-500" : "bg-emerald-500"
+          }`}
+        />
+      </span>
+      <span className="text-xs font-mono font-bold uppercase tracking-wider">
+        {regime.label} Regime
+      </span>
+    </div>
+    <div className="min-w-20">
+      <div className="h-1.5 overflow-hidden rounded-full bg-black/30">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${
+            regime.is_crisis ? "bg-red-500" : "bg-emerald-500"
+          }`}
+          style={{ width: `${Math.max(0, Math.min(100, regime.stay_probability * 100))}%` }}
+        />
+      </div>
+      <p className="mt-1 text-[9px] font-mono uppercase tracking-[0.14em] text-current/80">
+        Stay {formatPercent(regime.stay_probability * 100)}
+      </p>
+    </div>
   </div>
 )
 
@@ -411,6 +423,14 @@ function useAnalysis(apiBase: string, ticker: string | null, requestKey: number)
   )
 }
 
+function useRandomize(apiBase: string, ticker: string | null, requestKey: number) {
+  return useSWR<MonteRandomizeResponse>(
+    ticker ? (["randomize", apiBase, ticker, requestKey] as const satisfies RandomizeKey) : null,
+    (key: RandomizeKey) => fetchJson<MonteRandomizeResponse>(`${key[1]}/randomize?ticker=${encodeURIComponent(key[2])}`),
+    swrConfig,
+  )
+}
+
 // ============================================================================
 // Exported Components
 // ============================================================================
@@ -474,6 +494,7 @@ export function OverviewSection({
 }) {
   const quote = useStockQuote(apiBase, ticker, requestKey)
   const analysis = useAnalysis(apiBase, ticker, requestKey)
+  const randomize = useRandomize(apiBase, ticker, requestKey)
   
   if (!ticker) return null
 
@@ -537,13 +558,12 @@ export function OverviewSection({
           </span>
         )}
         <SignalPill signal={analysisData.rsi_signal ?? "Neutral"} />
-        {/* Only render if data and data.regime are present */}
-            {data && data.regime ? (
-              <RegimeBadge regime={data.regime} />
-            ) : (
-              <div className="animate-pulse bg-slate-800 h-6 w-24 rounded border border-slate-700" /> // Optional Skeleton Loader
-            )}
-            <div className="ml-auto flex flex-wrap gap-5">
+        {randomize.isLoading ? (
+          <div className="h-10 w-32 animate-pulse rounded border border-slate-700 bg-slate-800" />
+        ) : randomize.data?.regime ? (
+          <RegimeBadge regime={randomize.data.regime} />
+        ) : null}
+        <div className="ml-auto flex flex-wrap gap-5">
           {metrics.map(([label, value]) => (
             <div key={label} className="flex flex-col items-end gap-0.5">
               <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-zinc-600">
@@ -974,11 +994,7 @@ export function MonteCarloPanel({
     swrConfig,
   )
   
-  const randomize = useSWR<MonteRandomizeResponse>(
-    ticker ? (["randomize", apiBase, ticker, requestKey] as const satisfies RandomizeKey) : null,
-    (key: RandomizeKey) => fetchJson<MonteRandomizeResponse>(`${key[1]}/randomize?ticker=${encodeURIComponent(key[2])}`),
-    swrConfig,
-  )
+  const randomize = useRandomize(apiBase, ticker, requestKey)
   
   const savedTarget = useSWR<{ target_price?: number | null }>(
     ticker && session?.user?.id ? (["saved-target", apiBase, ticker, session.user.id] as const satisfies SavedTargetKey) : null,
