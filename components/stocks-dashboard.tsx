@@ -634,13 +634,15 @@ export function OverviewSection({
         <StatCard label="Sharpe" value={formatNumber(analysisData.sharpe)} />
       </div>
 
-      {boardroomData && (
-        <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-          <p className="font-mono text-[9px] text-zinc-600">Boardroom</p>
-          <p className="mt-1 text-xs text-zinc-200">Session: {boardroomData.session_id}</p>
-          <pre className="mt-2 max-h-48 overflow-auto text-xs text-zinc-300">{JSON.stringify(boardroomData.verdict, null, 2)}</pre>
-        </div>
-      )}
+     {boardroomData && (
+  <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+    <p className="font-mono text-[9px] text-zinc-600">Boardroom</p>
+    <p className="mt-1 text-xs text-zinc-200">Session: {boardroomData.session_id}</p>
+    <div className="mt-2 max-h-48 overflow-auto text-xs text-zinc-300 whitespace-pre-wrap">
+      {boardroomData.verdict}
+    </div>
+  </div>
+)}
 
       <TradeJournal ticker={ticker} />
     </>
