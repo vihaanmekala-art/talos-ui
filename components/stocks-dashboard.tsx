@@ -506,7 +506,7 @@ export function OverviewSection({
     setBoardroomData(null)
     try {
       const data = await fetchJson<BoardroomResponse>(
-  `${apiBase}/boardroom/${encodeURIComponent(ticker)}`,
+  `${apiBase}/boardroom?ticker=${encodeURIComponent(ticker)}`,
   {
     method: 'POST',
     headers: {
